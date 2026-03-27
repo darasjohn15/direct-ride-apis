@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# OS junk
+.DS_Store
+
+# Logs
+*.log
+
+# Environment
+appsettings.Development.json
