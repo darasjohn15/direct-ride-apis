@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using DirectRide.Api.Data;
 using DirectRide.Api.DTOs;
 using DirectRide.Api.Models;
@@ -25,6 +27,37 @@ public static class UserEndpoints
 
             return user;
         });
+
+        group.MapGet("/me", async (ClaimsPrincipal claimsPrincipal, AppDbContext db) =>
+        {
+            var userIdClaim = claimsPrincipal.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? claimsPrincipal.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (!Guid.TryParse(userIdClaim, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var user = await db.Users
+                .Where(u => u.Id == userId)
+                .Select(u => new UserResponseDto
+                {
+                    Id = u.Id,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName,
+                    Email = u.Email,
+                    PhoneNumber = u.PhoneNumber,
+                    Role = u.Role.ToString(),
+                    CreatedAt = u.CreatedAt,
+                    BaseFare = u.BaseFare,
+                })
+                .FirstOrDefaultAsync();
+
+            return user is null
+                ? Results.NotFound("User not found.")
+                : Results.Ok(user);
+        })
+        .RequireAuthorization();
 
         group.MapGet("", async (AppDbContext db) =>
         {
