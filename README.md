@@ -26,9 +26,3 @@ DirectRide is a private ride-booking backend that allows riders to book rides di
 - `POST /ride-requests`
 - `GET /ride-requests`
 - `PATCH /ride-requests/{id}/status`
-
-## Running Locally
-
-1. Start PostgreSQL via Docker:
-```bash
-docker compose up -d

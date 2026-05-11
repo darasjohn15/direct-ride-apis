@@ -1,4 +1,4 @@
-namespace DirectRide.Api.DTOs;
+namespace DirectRide.Api.DTOs.RideRequests;
 
 public class RideRequestResponseDto
 {

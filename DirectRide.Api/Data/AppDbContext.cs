@@ -34,5 +34,9 @@ public class AppDbContext : DbContext
             .WithOne(a => a.RideRequest)
             .HasForeignKey<RideRequest>(r => r.AvailabilitySlotId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<User>()
+            .Property(u => u.BaseFare)
+            .HasColumnType("decimal(10,2)");
     }
 }

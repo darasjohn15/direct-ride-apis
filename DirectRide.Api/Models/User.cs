@@ -19,4 +19,6 @@ public class User
     public List<RideRequest> RiderRideRequests { get; set; } = new();
 
     public List<RideRequest> DriverRideRequests { get; set; } = new();
+    public decimal BaseFare { get; set; } = 0.00m;
+    public string PasswordHash { get; set; } = string.Empty;
 }

@@ -1,4 +1,4 @@
-namespace DirectRide.Api.DTOs;
+namespace DirectRide.Api.DTOs.AvailabilitySlots;
 
 public class CreateAvailabilitySlotDto
 {

@@ -15,4 +15,5 @@ public class UserResponseDto
     public string Role { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; }
+    public decimal BaseFare { get; set; } = 0.00m;
 }

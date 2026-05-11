@@ -11,4 +11,5 @@ public class CreateUserDto
     public string PhoneNumber { get; set; } = string.Empty;
 
     public int Role { get; set; }
+    public string Password { get; set; } = string.Empty;
 }
