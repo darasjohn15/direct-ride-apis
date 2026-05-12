@@ -135,6 +135,107 @@ public class UsersApiTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task PutUserById_ShouldUpdateUser_WhenUserExists()
+    {
+        var createResponse = await _client.PostAsJsonAsync("/users", new CreateUserDto
+        {
+            FirstName = "Original",
+            LastName = "Driver",
+            Email = "put-original@test.com",
+            PhoneNumber = "555-111-2222",
+            Role = 1,
+            Password = "CorrectHorse123!"
+        });
+        var createdUser = await createResponse.Content.ReadFromJsonAsync<UserResponseDto>();
+
+        var response = await _client.PutAsJsonAsync($"/users/{createdUser!.Id}", new UpdateUserDto
+        {
+            FirstName = "Updated",
+            LastName = "Rider",
+            Email = "put-updated@test.com",
+            PhoneNumber = "555-333-4444",
+            Role = 0,
+            BaseFare = 12.50m
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var user = await response.Content.ReadFromJsonAsync<UserResponseDto>();
+
+        user.Should().NotBeNull();
+        user!.Id.Should().Be(createdUser.Id);
+        user.FirstName.Should().Be("Updated");
+        user.LastName.Should().Be("Rider");
+        user.Email.Should().Be("put-updated@test.com");
+        user.PhoneNumber.Should().Be("555-333-4444");
+        user.Role.Should().Be("Rider");
+        user.BaseFare.Should().Be(12.50m);
+        user.CreatedAt.Should().Be(createdUser.CreatedAt);
+    }
+
+    [Fact]
+    public async Task PutUserById_ShouldReturnNotFound_WhenUserDoesNotExist()
+    {
+        var response = await _client.PutAsJsonAsync($"/users/{Guid.NewGuid()}", new UpdateUserDto
+        {
+            FirstName = "Missing",
+            LastName = "User",
+            Email = "put-missing@test.com",
+            PhoneNumber = "555-000-1111",
+            Role = 0,
+            BaseFare = 10.00m
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task PatchUserById_ShouldUpdateOnlyProvidedFields_WhenUserExists()
+    {
+        var createResponse = await _client.PostAsJsonAsync("/users", new CreateUserDto
+        {
+            FirstName = "Partial",
+            LastName = "Driver",
+            Email = "patch-original@test.com",
+            PhoneNumber = "555-777-8888",
+            Role = 1,
+            Password = "CorrectHorse123!"
+        });
+        var createdUser = await createResponse.Content.ReadFromJsonAsync<UserResponseDto>();
+
+        var response = await _client.PatchAsJsonAsync($"/users/{createdUser!.Id}", new PatchUserDto
+        {
+            FirstName = "Patched",
+            BaseFare = 22.75m
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var user = await response.Content.ReadFromJsonAsync<UserResponseDto>();
+
+        user.Should().NotBeNull();
+        user!.Id.Should().Be(createdUser.Id);
+        user.FirstName.Should().Be("Patched");
+        user.LastName.Should().Be("Driver");
+        user.Email.Should().Be("patch-original@test.com");
+        user.PhoneNumber.Should().Be("555-777-8888");
+        user.Role.Should().Be("Driver");
+        user.BaseFare.Should().Be(22.75m);
+        user.CreatedAt.Should().Be(createdUser.CreatedAt);
+    }
+
+    [Fact]
+    public async Task PatchUserById_ShouldReturnNotFound_WhenUserDoesNotExist()
+    {
+        var response = await _client.PatchAsJsonAsync($"/users/{Guid.NewGuid()}", new PatchUserDto
+        {
+            FirstName = "Missing"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task GetUsersMe_ShouldReturnCurrentUser_WhenAuthenticatedUserExists()
     {
         var createUser = new CreateUserDto

@@ -132,6 +132,97 @@ public static class UserEndpoints
             return Results.Created($"/users/{user.Id}", response);
         });
 
+        group.MapPut("/{id:guid}", async (AppDbContext db, Guid id, UpdateUserDto dto) =>
+        {
+            var user = await db.Users.FindAsync(id);
+
+            if (user is null)
+            {
+                return Results.NotFound("User not found.");
+            }
+
+            user.FirstName = dto.FirstName;
+            user.LastName = dto.LastName;
+            user.Email = dto.Email;
+            user.PhoneNumber = dto.PhoneNumber;
+            user.Role = (UserRole)dto.Role;
+            user.BaseFare = dto.BaseFare;
+
+            await db.SaveChangesAsync();
+
+            var response = new UserResponseDto
+            {
+                Id = user.Id,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role.ToString(),
+                CreatedAt = user.CreatedAt,
+                BaseFare = user.BaseFare,
+            };
+
+            return Results.Ok(response);
+        })
+        .RequireAuthorization();
+
+        group.MapPatch("/{id:guid}", async (AppDbContext db, Guid id, PatchUserDto dto) =>
+        {
+            var user = await db.Users.FindAsync(id);
+
+            if (user is null)
+            {
+                return Results.NotFound("User not found.");
+            }
+
+            if (dto.FirstName is not null)
+            {
+                user.FirstName = dto.FirstName;
+            }
+
+            if (dto.LastName is not null)
+            {
+                user.LastName = dto.LastName;
+            }
+
+            if (dto.Email is not null)
+            {
+                user.Email = dto.Email;
+            }
+
+            if (dto.PhoneNumber is not null)
+            {
+                user.PhoneNumber = dto.PhoneNumber;
+            }
+
+            if (dto.Role.HasValue)
+            {
+                user.Role = (UserRole)dto.Role.Value;
+            }
+
+            if (dto.BaseFare.HasValue)
+            {
+                user.BaseFare = dto.BaseFare.Value;
+            }
+
+            await db.SaveChangesAsync();
+
+            var response = new UserResponseDto
+            {
+                Id = user.Id,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role.ToString(),
+                CreatedAt = user.CreatedAt,
+                BaseFare = user.BaseFare,
+            };
+
+            return Results.Ok(response);
+        })
+        .RequireAuthorization();
+
         return app;
     }
 }
