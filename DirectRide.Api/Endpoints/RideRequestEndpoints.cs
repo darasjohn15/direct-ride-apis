@@ -118,8 +118,11 @@ public static class RideRequestEndpoints
                     SlotEndTime = r.AvailabilitySlot != null ? r.AvailabilitySlot.EndTime : default,
                     PickupLocation = r.PickupLocation,
                     DropoffLocation = r.DropoffLocation,
+                    FareAmount = r.FareAmount,
+                    DriverEarningsAmount = r.DriverEarningsAmount,
                     Status = r.Status.ToString(),
-                    CreatedAt = r.CreatedAt
+                    CreatedAt = r.CreatedAt,
+                    CompletedAt = r.CompletedAt
                 })
                 .ToListAsync();
 
@@ -158,7 +161,9 @@ public static class RideRequestEndpoints
                 DriverId = dto.DriverId,
                 AvailabilitySlotId = dto.AvailabilitySlotId,
                 PickupLocation = dto.PickupLocation,
-                DropoffLocation = dto.DropoffLocation
+                DropoffLocation = dto.DropoffLocation,
+                FareAmount = driver.BaseFare,
+                DriverEarningsAmount = driver.BaseFare
             };
 
             db.RideRequests.Add(request);
@@ -178,8 +183,11 @@ public static class RideRequestEndpoints
                 SlotEndTime = slot.EndTime,
                 PickupLocation = request.PickupLocation,
                 DropoffLocation = request.DropoffLocation,
+                FareAmount = request.FareAmount,
+                DriverEarningsAmount = request.DriverEarningsAmount,
                 Status = request.Status.ToString(),
-                CreatedAt = request.CreatedAt
+                CreatedAt = request.CreatedAt,
+                CompletedAt = request.CompletedAt
             };
 
             return Results.Created($"/ride-requests/{request.Id}", response);
@@ -205,6 +213,21 @@ public static class RideRequestEndpoints
                 request.AvailabilitySlot.IsBooked = false;
             }
 
+            if (status == RideRequestStatus.Completed)
+            {
+                request.CompletedAt ??= DateTime.UtcNow;
+
+                if (request.FareAmount == 0.00m && request.Driver is not null)
+                {
+                    request.FareAmount = request.Driver.BaseFare;
+                    request.DriverEarningsAmount = request.Driver.BaseFare;
+                }
+            }
+            else
+            {
+                request.CompletedAt = null;
+            }
+
             await db.SaveChangesAsync();
 
             var response = new RideRequestResponseDto
@@ -223,8 +246,11 @@ public static class RideRequestEndpoints
                 SlotEndTime = request.AvailabilitySlot?.EndTime ?? default,
                 PickupLocation = request.PickupLocation,
                 DropoffLocation = request.DropoffLocation,
+                FareAmount = request.FareAmount,
+                DriverEarningsAmount = request.DriverEarningsAmount,
                 Status = request.Status.ToString(),
-                CreatedAt = request.CreatedAt
+                CreatedAt = request.CreatedAt,
+                CompletedAt = request.CompletedAt
             };
 
             return Results.Ok(response);

@@ -38,5 +38,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .Property(u => u.BaseFare)
             .HasColumnType("decimal(10,2)");
+
+        modelBuilder.Entity<RideRequest>()
+            .Property(r => r.FareAmount)
+            .HasColumnType("decimal(10,2)");
+
+        modelBuilder.Entity<RideRequest>()
+            .Property(r => r.DriverEarningsAmount)
+            .HasColumnType("decimal(10,2)");
     }
 }

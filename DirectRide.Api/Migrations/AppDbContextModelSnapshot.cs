@@ -62,12 +62,21 @@ namespace DirectRide.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("DriverId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("DriverEarningsAmount")
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("DropoffLocation")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<decimal>("FareAmount")
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<string>("PickupLocation")
                         .IsRequired()

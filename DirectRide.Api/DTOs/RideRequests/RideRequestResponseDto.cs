@@ -22,7 +22,13 @@ public class RideRequestResponseDto
 
     public string DropoffLocation { get; set; } = string.Empty;
 
+    public decimal FareAmount { get; set; }
+
+    public decimal DriverEarningsAmount { get; set; }
+
     public string Status { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; }
+
+    public DateTime? CompletedAt { get; set; }
 }

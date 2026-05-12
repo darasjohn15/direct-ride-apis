@@ -17,7 +17,13 @@ public class RideRequest
 
     public string DropoffLocation { get; set; } = string.Empty;
 
+    public decimal FareAmount { get; set; } = 0.00m;
+
+    public decimal DriverEarningsAmount { get; set; } = 0.00m;
+
     public RideRequestStatus Status { get; set; } = RideRequestStatus.Pending;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public DateTime? CompletedAt { get; set; }
 }
