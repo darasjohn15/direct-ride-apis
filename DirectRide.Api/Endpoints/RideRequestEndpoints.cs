@@ -12,12 +12,96 @@ public static class RideRequestEndpoints
         var group = app.MapGroup("/ride-requests")
             .RequireAuthorization();
 
-        group.MapGet("", async (AppDbContext db) =>
+        group.MapGet("", async (AppDbContext db, [AsParameters] RideRequestFilterDto filters) =>
         {
-            var rideRequests = await db.RideRequests
+            var query = db.RideRequests
                 .Include(r => r.Rider)
                 .Include(r => r.Driver)
                 .Include(r => r.AvailabilitySlot)
+                .AsQueryable();
+
+            if (filters.RiderId.HasValue)
+            {
+                query = query.Where(r => r.RiderId == filters.RiderId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filters.RiderName))
+            {
+                var riderName = $"%{filters.RiderName.Trim().ToLower()}%";
+                query = query.Where(r => r.Rider != null &&
+                    EF.Functions.Like((r.Rider.FirstName + " " + r.Rider.LastName).ToLower(), riderName));
+            }
+
+            if (filters.DriverId.HasValue)
+            {
+                query = query.Where(r => r.DriverId == filters.DriverId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filters.DriverName))
+            {
+                var driverName = $"%{filters.DriverName.Trim().ToLower()}%";
+                query = query.Where(r => r.Driver != null &&
+                    EF.Functions.Like((r.Driver.FirstName + " " + r.Driver.LastName).ToLower(), driverName));
+            }
+
+            if (filters.AvailabilitySlotId.HasValue)
+            {
+                query = query.Where(r => r.AvailabilitySlotId == filters.AvailabilitySlotId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filters.PickupLocation))
+            {
+                var pickupLocation = $"%{filters.PickupLocation.Trim().ToLower()}%";
+                query = query.Where(r => EF.Functions.Like(r.PickupLocation.ToLower(), pickupLocation));
+            }
+
+            if (!string.IsNullOrWhiteSpace(filters.DropoffLocation))
+            {
+                var dropoffLocation = $"%{filters.DropoffLocation.Trim().ToLower()}%";
+                query = query.Where(r => EF.Functions.Like(r.DropoffLocation.ToLower(), dropoffLocation));
+            }
+
+            if (filters.Status.HasValue)
+            {
+                query = query.Where(r => r.Status == filters.Status.Value);
+            }
+
+            if (filters.SlotStartTimeFrom.HasValue)
+            {
+                query = query.Where(r => r.AvailabilitySlot != null &&
+                    r.AvailabilitySlot.StartTime >= filters.SlotStartTimeFrom.Value);
+            }
+
+            if (filters.SlotStartTimeTo.HasValue)
+            {
+                query = query.Where(r => r.AvailabilitySlot != null &&
+                    r.AvailabilitySlot.StartTime <= filters.SlotStartTimeTo.Value);
+            }
+
+            if (filters.SlotEndTimeFrom.HasValue)
+            {
+                query = query.Where(r => r.AvailabilitySlot != null &&
+                    r.AvailabilitySlot.EndTime >= filters.SlotEndTimeFrom.Value);
+            }
+
+            if (filters.SlotEndTimeTo.HasValue)
+            {
+                query = query.Where(r => r.AvailabilitySlot != null &&
+                    r.AvailabilitySlot.EndTime <= filters.SlotEndTimeTo.Value);
+            }
+
+            if (filters.CreatedAtFrom.HasValue)
+            {
+                query = query.Where(r => r.CreatedAt >= filters.CreatedAtFrom.Value);
+            }
+
+            if (filters.CreatedAtTo.HasValue)
+            {
+                query = query.Where(r => r.CreatedAt <= filters.CreatedAtTo.Value);
+            }
+
+            var rideRequests = await query
+                .OrderByDescending(r => r.CreatedAt)
                 .Select(r => new RideRequestResponseDto
                 {
                     Id = r.Id,
