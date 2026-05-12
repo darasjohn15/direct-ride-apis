@@ -79,6 +79,29 @@ public static class UserEndpoints
         })
         .RequireAuthorization();
 
+        group.MapGet("/{id:guid}", async (AppDbContext db, Guid id) =>
+        {
+            var user = await db.Users
+                .Where(u => u.Id == id)
+                .Select(u => new UserResponseDto
+                {
+                    Id = u.Id,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName,
+                    Email = u.Email,
+                    PhoneNumber = u.PhoneNumber,
+                    Role = u.Role.ToString(),
+                    CreatedAt = u.CreatedAt,
+                    BaseFare = u.BaseFare,
+                })
+                .FirstOrDefaultAsync();
+
+            return user is null
+                ? Results.NotFound("User not found.")
+                : Results.Ok(user);
+        })
+        .RequireAuthorization();
+
         group.MapPost("", async (AppDbContext db, CreateUserDto dto, PasswordHasher<User> hasher) =>
         {
             var user = new User

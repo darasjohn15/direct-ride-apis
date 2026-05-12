@@ -57,6 +57,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public const string AuthenticationScheme = "Test";
+    public const string UserIdHeaderName = "X-Test-UserId";
 
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -68,9 +69,13 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        var userId = Request.Headers.TryGetValue(UserIdHeaderName, out var userIdHeader)
+            ? userIdHeader.ToString()
+            : "test-user";
+
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, "test-user"),
+            new Claim(ClaimTypes.NameIdentifier, userId),
             new Claim(ClaimTypes.Name, "Test User")
         };
 

@@ -95,6 +95,94 @@ public class UsersApiTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetUserById_ShouldReturnUser_WhenUserExists()
+    {
+        var createUser = new CreateUserDto
+        {
+            FirstName = "Lookup",
+            LastName = "Driver",
+            Email = "lookup-driver@test.com",
+            PhoneNumber = "555-321-7654",
+            Role = 1,
+            Password = "CorrectHorse123!"
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("/users", createUser);
+        var createdUser = await createResponse.Content.ReadFromJsonAsync<UserResponseDto>();
+
+        var response = await _client.GetAsync($"/users/{createdUser!.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var user = await response.Content.ReadFromJsonAsync<UserResponseDto>();
+
+        user.Should().NotBeNull();
+        user!.Id.Should().Be(createdUser.Id);
+        user.FirstName.Should().Be("Lookup");
+        user.LastName.Should().Be("Driver");
+        user.Email.Should().Be("lookup-driver@test.com");
+        user.PhoneNumber.Should().Be("555-321-7654");
+        user.Role.Should().Be("Driver");
+        user.BaseFare.Should().Be(0.00m);
+    }
+
+    [Fact]
+    public async Task GetUserById_ShouldReturnNotFound_WhenUserDoesNotExist()
+    {
+        var response = await _client.GetAsync($"/users/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetUsersMe_ShouldReturnCurrentUser_WhenAuthenticatedUserExists()
+    {
+        var createUser = new CreateUserDto
+        {
+            FirstName = "Current",
+            LastName = "Rider",
+            Email = "current-rider@test.com",
+            PhoneNumber = "555-654-9876",
+            Role = 0,
+            Password = "CorrectHorse123!"
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("/users", createUser);
+        var createdUser = await createResponse.Content.ReadFromJsonAsync<UserResponseDto>();
+
+        var response = await GetUsersMeAsync(createdUser!.Id);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var user = await response.Content.ReadFromJsonAsync<UserResponseDto>();
+
+        user.Should().NotBeNull();
+        user!.Id.Should().Be(createdUser.Id);
+        user.FirstName.Should().Be("Current");
+        user.LastName.Should().Be("Rider");
+        user.Email.Should().Be("current-rider@test.com");
+        user.PhoneNumber.Should().Be("555-654-9876");
+        user.Role.Should().Be("Rider");
+        user.BaseFare.Should().Be(0.00m);
+    }
+
+    [Fact]
+    public async Task GetUsersMe_ShouldReturnNotFound_WhenAuthenticatedUserDoesNotExist()
+    {
+        var response = await GetUsersMeAsync(Guid.NewGuid());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetUsersMe_ShouldReturnUnauthorized_WhenAuthenticatedUserIdIsNotGuid()
+    {
+        var response = await _client.GetAsync("/users/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task GetUsersTest_ShouldReturnSampleDriver()
     {
         var response = await _client.GetAsync("/users/test");
@@ -109,5 +197,13 @@ public class UsersApiTests : IClassFixture<CustomWebApplicationFactory>
         user.Email.Should().Be("razzo@directride.com");
         user.PhoneNumber.Should().Be("555-555-5555");
         user.Role.Should().Be(UserRole.Driver);
+    }
+
+    private Task<HttpResponseMessage> GetUsersMeAsync(Guid userId)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/users/me");
+        request.Headers.Add(TestAuthHandler.UserIdHeaderName, userId.ToString());
+
+        return _client.SendAsync(request);
     }
 }
