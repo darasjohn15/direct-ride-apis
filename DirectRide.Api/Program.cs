@@ -67,8 +67,8 @@ app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapAvailabilityEndpoints();
 app.MapRideRequestEndpoints();
+app.MapEarningsEndpoints();
 
 app.Run();
 
 public partial class Program { }
-
