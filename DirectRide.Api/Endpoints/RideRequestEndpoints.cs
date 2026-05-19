@@ -66,6 +66,13 @@ public static class RideRequestEndpoints
                 query = query.Where(r => r.Status == filters.Status.Value);
             }
 
+            if (filters.UpcomingOnly == true)
+            {
+                var now = DateTime.UtcNow;
+                query = query.Where(r => r.AvailabilitySlot != null &&
+                    r.AvailabilitySlot.StartTime > now);
+            }
+
             if (filters.SlotStartTimeFrom.HasValue)
             {
                 query = query.Where(r => r.AvailabilitySlot != null &&
@@ -100,8 +107,11 @@ public static class RideRequestEndpoints
                 query = query.Where(r => r.CreatedAt <= filters.CreatedAtTo.Value);
             }
 
-            var rideRequests = await query
-                .OrderByDescending(r => r.CreatedAt)
+            var orderedQuery = filters.UpcomingOnly == true
+                ? query.OrderBy(r => r.AvailabilitySlot!.StartTime).ThenByDescending(r => r.CreatedAt)
+                : query.OrderByDescending(r => r.CreatedAt);
+
+            var rideRequests = await orderedQuery
                 .Select(r => new RideRequestResponseDto
                 {
                     Id = r.Id,
@@ -149,7 +159,7 @@ public static class RideRequestEndpoints
                 return Results.NotFound("Rider not found.");
             }
 
-            var driver = await db.Users.FindAsync(dto.DriverId);
+            var driver = await db.Users.FindAsync(slot.DriverId);
             if (driver is null)
             {
                 return Results.NotFound("Driver not found.");
@@ -158,7 +168,7 @@ public static class RideRequestEndpoints
             var request = new RideRequest
             {
                 RiderId = dto.RiderId,
-                DriverId = dto.DriverId,
+                DriverId = slot.DriverId,
                 AvailabilitySlotId = dto.AvailabilitySlotId,
                 PickupLocation = dto.PickupLocation,
                 DropoffLocation = dto.DropoffLocation,

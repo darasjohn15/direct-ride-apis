@@ -30,21 +30,23 @@ public class AvailabilityApiTests : IClassFixture<CustomWebApplicationFactory>
 
         var driver = await createDriverResponse.Content.ReadFromJsonAsync<UserResponseDto>();
 
+        var startTime = DateTime.UtcNow.AddDays(1);
         var request = new CreateAvailabilitySlotDto
         {
             DriverId = driver!.Id,
-            StartTime = DateTime.UtcNow.AddDays(1),
-            EndTime = DateTime.UtcNow.AddDays(1).AddHours(1)
+            StartTime = startTime,
+            EndTime = startTime.AddHours(1)
         };
 
         var response = await _client.PostAsJsonAsync("/availability", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var slot = await response.Content.ReadFromJsonAsync<AvailabilitySlotResponseDto>();
+        var slots = await response.Content.ReadFromJsonAsync<List<AvailabilitySlotResponseDto>>();
+        var slot = slots!.Single();
 
         slot.Should().NotBeNull();
-        slot!.DriverId.Should().Be(driver.Id);
+        slot.DriverId.Should().Be(driver.Id);
         slot.IsBooked.Should().BeFalse();
     }
 
@@ -62,13 +64,15 @@ public class AvailabilityApiTests : IClassFixture<CustomWebApplicationFactory>
         });
         var driver = await createDriverResponse.Content.ReadFromJsonAsync<UserResponseDto>();
 
+        var startTime = DateTime.UtcNow.AddDays(2);
         var createSlotResponse = await _client.PostAsJsonAsync("/availability", new CreateAvailabilitySlotDto
         {
             DriverId = driver!.Id,
-            StartTime = DateTime.UtcNow.AddDays(2),
-            EndTime = DateTime.UtcNow.AddDays(2).AddHours(1)
+            StartTime = startTime,
+            EndTime = startTime.AddHours(1)
         });
-        var createdSlot = await createSlotResponse.Content.ReadFromJsonAsync<AvailabilitySlotResponseDto>();
+        var createdSlots = await createSlotResponse.Content.ReadFromJsonAsync<List<AvailabilitySlotResponseDto>>();
+        var createdSlot = createdSlots!.Single();
 
         var response = await _client.GetAsync("/availability");
 
@@ -154,7 +158,6 @@ public class AvailabilityApiTests : IClassFixture<CustomWebApplicationFactory>
         var rideRequestResponse = await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
         {
             RiderId = rider.Id,
-            DriverId = driver.Id,
             AvailabilitySlotId = bookedSlot.Id,
             PickupLocation = "Airport",
             DropoffLocation = "Downtown"
@@ -176,11 +179,12 @@ public class AvailabilityApiTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task PostAvailability_ShouldReturnNotFound_WhenDriverDoesNotExist()
     {
+        var startTime = DateTime.UtcNow.AddDays(3);
         var request = new CreateAvailabilitySlotDto
         {
             DriverId = Guid.NewGuid(),
-            StartTime = DateTime.UtcNow.AddDays(3),
-            EndTime = DateTime.UtcNow.AddDays(3).AddHours(1)
+            StartTime = startTime,
+            EndTime = startTime.AddHours(1)
         };
 
         var response = await _client.PostAsJsonAsync("/availability", request);
@@ -237,8 +241,8 @@ public class AvailabilityApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var slot = await response.Content.ReadFromJsonAsync<AvailabilitySlotResponseDto>();
+        var slots = await response.Content.ReadFromJsonAsync<List<AvailabilitySlotResponseDto>>();
 
-        return slot!;
+        return slots!.Single();
     }
 }

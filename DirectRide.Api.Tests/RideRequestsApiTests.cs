@@ -40,19 +40,20 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         });
         var rider = await riderResponse.Content.ReadFromJsonAsync<UserResponseDto>();
 
+        var slotStartTime = DateTime.UtcNow.AddDays(1);
         var slotResponse = await _client.PostAsJsonAsync("/availability", new CreateAvailabilitySlotDto
         {
             DriverId = driver!.Id,
-            StartTime = DateTime.UtcNow.AddDays(1),
-            EndTime = DateTime.UtcNow.AddDays(1).AddHours(1)
+            StartTime = slotStartTime,
+            EndTime = slotStartTime.AddHours(1)
         });
-        var slot = await slotResponse.Content.ReadFromJsonAsync<AvailabilitySlotResponseDto>();
+        var slots = await slotResponse.Content.ReadFromJsonAsync<List<AvailabilitySlotResponseDto>>();
+        var slot = slots!.Single();
 
         var request = new CreateRideRequestDto
         {
             RiderId = rider!.Id,
-            DriverId = driver.Id,
-            AvailabilitySlotId = slot!.Id,
+            AvailabilitySlotId = slot.Id,
             PickupLocation = "Midtown Atlanta",
             DropoffLocation = "Grant Park"
         };
@@ -108,19 +109,20 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         });
         var rider2 = await rider2Response.Content.ReadFromJsonAsync<UserResponseDto>();
 
+        var slotStartTime = DateTime.UtcNow.AddDays(2);
         var slotResponse = await _client.PostAsJsonAsync("/availability", new CreateAvailabilitySlotDto
         {
             DriverId = driver!.Id,
-            StartTime = DateTime.UtcNow.AddDays(2),
-            EndTime = DateTime.UtcNow.AddDays(2).AddHours(1)
+            StartTime = slotStartTime,
+            EndTime = slotStartTime.AddHours(1)
         });
-        var slot = await slotResponse.Content.ReadFromJsonAsync<AvailabilitySlotResponseDto>();
+        var slots = await slotResponse.Content.ReadFromJsonAsync<List<AvailabilitySlotResponseDto>>();
+        var slot = slots!.Single();
 
         await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
         {
             RiderId = rider1!.Id,
-            DriverId = driver.Id,
-            AvailabilitySlotId = slot!.Id,
+            AvailabilitySlotId = slot.Id,
             PickupLocation = "Location A",
             DropoffLocation = "Location B"
         });
@@ -128,7 +130,6 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         var secondResponse = await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
         {
             RiderId = rider2!.Id,
-            DriverId = driver.Id,
             AvailabilitySlotId = slot.Id,
             PickupLocation = "Location C",
             DropoffLocation = "Location D"
@@ -147,7 +148,6 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         var createResponse = await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
         {
             RiderId = rider.Id,
-            DriverId = driver.Id,
             AvailabilitySlotId = slot.Id,
             PickupLocation = "Ponce City Market",
             DropoffLocation = "Mercedes-Benz Stadium"
@@ -282,6 +282,33 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetRideRequests_ShouldFilterUpcomingAcceptedRides()
+    {
+        var driver = await CreateUserAsync("upcoming-accepted-driver@test.com", role: 1);
+        var rider = await CreateUserAsync("upcoming-accepted-rider@test.com", role: 0);
+        var pastRide = await CreateRideRequestAsync(driver, rider, DateTime.UtcNow.AddHours(-2));
+        var upcomingRide = await CreateRideRequestAsync(driver, rider, DateTime.UtcNow.AddHours(2));
+        var laterUpcomingRide = await CreateRideRequestAsync(driver, rider, DateTime.UtcNow.AddHours(3));
+        var pendingUpcomingRide = await CreateRideRequestAsync(driver, rider, DateTime.UtcNow.AddHours(4));
+
+        await _client.PatchAsync($"/ride-requests/{pastRide.Id}/status?status={RideRequestStatus.Accepted}", content: null);
+        await _client.PatchAsync($"/ride-requests/{upcomingRide.Id}/status?status={RideRequestStatus.Accepted}", content: null);
+        await _client.PatchAsync($"/ride-requests/{laterUpcomingRide.Id}/status?status={RideRequestStatus.Accepted}", content: null);
+
+        var response = await _client.GetAsync(
+            $"/ride-requests?driverId={driver.Id}&status=Accepted&upcomingOnly=true");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var rideRequests = await response.Content.ReadFromJsonAsync<List<RideRequestResponseDto>>();
+
+        rideRequests.Should().NotBeNull();
+        rideRequests!.Select(r => r.Id).Should().Equal(upcomingRide.Id, laterUpcomingRide.Id);
+        rideRequests.Should().NotContain(r => r.Id == pastRide.Id);
+        rideRequests.Should().NotContain(r => r.Id == pendingUpcomingRide.Id);
+    }
+
+    [Fact]
     public async Task PostRideRequest_ShouldReturnNotFound_WhenAvailabilitySlotDoesNotExist()
     {
         var driver = await CreateUserAsync("missing-slot-driver@test.com", role: 1);
@@ -290,7 +317,6 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
         {
             RiderId = rider.Id,
-            DriverId = driver.Id,
             AvailabilitySlotId = Guid.NewGuid(),
             PickupLocation = "Location A",
             DropoffLocation = "Location B"
@@ -308,26 +334,6 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
         {
             RiderId = Guid.NewGuid(),
-            DriverId = driver.Id,
-            AvailabilitySlotId = slot.Id,
-            PickupLocation = "Location A",
-            DropoffLocation = "Location B"
-        });
-
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
-    public async Task PostRideRequest_ShouldReturnNotFound_WhenDriverDoesNotExist()
-    {
-        var slotDriver = await CreateUserAsync("slot-driver@test.com", role: 1);
-        var rider = await CreateUserAsync("missing-driver-rider@test.com", role: 0);
-        var slot = await CreateAvailabilitySlotAsync(slotDriver.Id, daysFromNow: 5);
-
-        var response = await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
-        {
-            RiderId = rider.Id,
-            DriverId = Guid.NewGuid(),
             AvailabilitySlotId = slot.Id,
             PickupLocation = "Location A",
             DropoffLocation = "Location B"
@@ -415,18 +421,19 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
 
     private async Task<AvailabilitySlotResponseDto> CreateAvailabilitySlotAsync(Guid driverId, int daysFromNow)
     {
+        var startTime = DateTime.UtcNow.AddDays(daysFromNow);
         var response = await _client.PostAsJsonAsync("/availability", new CreateAvailabilitySlotDto
         {
             DriverId = driverId,
-            StartTime = DateTime.UtcNow.AddDays(daysFromNow),
-            EndTime = DateTime.UtcNow.AddDays(daysFromNow).AddHours(1)
+            StartTime = startTime,
+            EndTime = startTime.AddHours(1)
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var slot = await response.Content.ReadFromJsonAsync<AvailabilitySlotResponseDto>();
+        var slots = await response.Content.ReadFromJsonAsync<List<AvailabilitySlotResponseDto>>();
 
-        return slot!;
+        return slots!.Single();
     }
 
     private async Task<AvailabilitySlotResponseDto> CreateAvailabilitySlotAsync(Guid driverId, DateTime startTime)
@@ -440,9 +447,9 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var slot = await response.Content.ReadFromJsonAsync<AvailabilitySlotResponseDto>();
+        var slots = await response.Content.ReadFromJsonAsync<List<AvailabilitySlotResponseDto>>();
 
-        return slot!;
+        return slots!.Single();
     }
 
     private async Task<RideRequestResponseDto> CreateRideRequestAsync(
@@ -466,10 +473,31 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
         {
             RiderId = rider.Id,
-            DriverId = driver.Id,
             AvailabilitySlotId = slot.Id,
             PickupLocation = pickupLocation,
             DropoffLocation = dropoffLocation
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var rideRequest = await response.Content.ReadFromJsonAsync<RideRequestResponseDto>();
+
+        return rideRequest!;
+    }
+
+    private async Task<RideRequestResponseDto> CreateRideRequestAsync(
+        UserResponseDto driver,
+        UserResponseDto rider,
+        DateTime slotStartTime)
+    {
+        var slot = await CreateAvailabilitySlotAsync(driver.Id, slotStartTime);
+
+        var response = await _client.PostAsJsonAsync("/ride-requests", new CreateRideRequestDto
+        {
+            RiderId = rider.Id,
+            AvailabilitySlotId = slot.Id,
+            PickupLocation = "Location A",
+            DropoffLocation = "Location B"
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);

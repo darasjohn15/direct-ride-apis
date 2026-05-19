@@ -20,6 +20,8 @@ public class RideRequestFilterDto
 
     public RideRequestStatus? Status { get; set; }
 
+    public bool? UpcomingOnly { get; set; }
+
     public DateTime? SlotStartTimeFrom { get; set; }
 
     public DateTime? SlotStartTimeTo { get; set; }

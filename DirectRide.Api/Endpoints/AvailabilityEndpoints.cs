@@ -92,28 +92,69 @@ public static class AvailabilityEndpoints
                 return Results.NotFound("Driver not found.");
             }
 
-            var slot = new AvailabilitySlot
+            if (driver.Role != UserRole.Driver)
             {
-                DriverId = dto.DriverId,
-                StartTime = dto.StartTime,
-                EndTime = dto.EndTime
-            };
+                return Results.BadRequest("User is not a driver.");
+            }
 
-            db.AvailabilitySlots.Add(slot);
+            if (dto.StartTime >= dto.EndTime)
+            {
+                return Results.BadRequest("Start time must be before end time.");
+            }
+
+            var slotDuration = TimeSpan.FromHours(1);
+            var windowDuration = dto.EndTime - dto.StartTime;
+
+            if (windowDuration < slotDuration)
+            {
+                return Results.BadRequest("Availability window must be at least one hour.");
+            }
+
+            if (windowDuration.Ticks % slotDuration.Ticks != 0)
+            {
+                return Results.BadRequest("Availability window must divide evenly into one-hour slots.");
+            }
+
+            var slots = new List<AvailabilitySlot>();
+
+            for (var startTime = dto.StartTime; startTime < dto.EndTime; startTime = startTime.Add(slotDuration))
+            {
+                slots.Add(new AvailabilitySlot
+                {
+                    DriverId = dto.DriverId,
+                    StartTime = startTime,
+                    EndTime = startTime.Add(slotDuration)
+                });
+            }
+
+            var hasOverlap = await db.AvailabilitySlots.AnyAsync(existing =>
+                existing.DriverId == dto.DriverId &&
+                existing.StartTime < dto.EndTime &&
+                existing.EndTime > dto.StartTime);
+
+            if (hasOverlap)
+            {
+                return Results.BadRequest("Availability window overlaps an existing slot for this driver.");
+            }
+
+            db.AvailabilitySlots.AddRange(slots);
             await db.SaveChangesAsync();
 
-            var response = new AvailabilitySlotResponseDto
-            {
-                Id = slot.Id,
-                DriverId = slot.DriverId,
-                DriverName = $"{driver.FirstName} {driver.LastName}",
-                StartTime = slot.StartTime,
-                EndTime = slot.EndTime,
-                IsBooked = slot.IsBooked,
-                CreatedAt = slot.CreatedAt
-            };
+            var response = slots
+                .OrderBy(slot => slot.StartTime)
+                .Select(slot => new AvailabilitySlotResponseDto
+                {
+                    Id = slot.Id,
+                    DriverId = slot.DriverId,
+                    DriverName = $"{driver.FirstName} {driver.LastName}",
+                    StartTime = slot.StartTime,
+                    EndTime = slot.EndTime,
+                    IsBooked = slot.IsBooked,
+                    CreatedAt = slot.CreatedAt
+                })
+                .ToList();
 
-            return Results.Created($"/availability/{slot.Id}", response);
+            return Results.Created("/availability", response);
         });
 
         return app;
