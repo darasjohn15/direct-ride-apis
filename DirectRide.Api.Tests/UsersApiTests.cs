@@ -84,11 +84,12 @@ public class UsersApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var users = await response.Content.ReadFromJsonAsync<List<UserResponseDto>>();
+        var paginatedUsers = await response.Content.ReadFromJsonAsync<PaginatedResponseDto<UserResponseDto>>();
 
-        users.Should().NotBeNull();
-        users!.Count.Should().BeGreaterThan(0);
-        users.Should().Contain(u =>
+        paginatedUsers.Should().NotBeNull();
+        paginatedUsers!.Items.Count.Should().BeGreaterThan(0);
+        paginatedUsers.TotalItems.Should().BeGreaterThan(0);
+        paginatedUsers.Items.Should().Contain(u =>
             u.Email == "testuser@test.com"
             && u.PhoneNumber == "555-123-4567"
             && u.BaseFare == 0.00m);

@@ -10,7 +10,7 @@ DirectRide is a private ride-booking backend that allows riders to book rides di
 - xUnit (integration tests)
 
 ## Features
-- User management (drivers & riders)
+- User management (riders, drivers, and admins)
 - Driver availability scheduling
 - Ride request system
 - Booking logic (prevents double-booking)
@@ -44,7 +44,7 @@ Request body:
 | `GET` | `/users/test` | Public | Returns a sample driver user. |
 | `POST` | `/users` | Public | Create a rider or driver account. |
 | `GET` | `/users/me` | Required | Get the currently authenticated user. |
-| `GET` | `/users` | Required | Get all users. |
+| `GET` | `/users` | Required | Get paginated users. Supports search, role, and status filters. |
 | `GET` | `/users/{id}` | Required | Get a user by ID. |
 | `PUT` | `/users/{id}` | Required | Replace a user's profile fields. |
 | `PATCH` | `/users/{id}` | Required | Update one or more user profile fields. |
@@ -77,12 +77,47 @@ Update user body:
 
 Patch user body supports any subset of `firstName`, `lastName`, `email`, `phoneNumber`, `role`, and `baseFare`.
 
+`GET /users` query filters:
+
+| Query parameter | Type | Notes |
+| --- | --- | --- |
+| `page` | `int` | Defaults to `1`. Values below `1` are treated as `1`. |
+| `pageSize` | `int` | Defaults to `20`. Clamped between `1` and `100`. |
+| `search` | `string` | Matches full name, email, or phone number. |
+| `role` | `UserRole` or `int` | Accepts role names, numeric role values, or `All Roles`. |
+| `status` | `string` | `All Statuses` returns all users. `Deactivated` currently returns no users. |
+
+`GET /users` response:
+
+```json
+{
+  "items": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "firstName": "Razzo",
+      "lastName": "Driver",
+      "email": "razzo@directride.com",
+      "phoneNumber": "555-555-5555",
+      "role": "Driver",
+      "baseFare": 25.00
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 1,
+  "totalPages": 1,
+  "hasPreviousPage": false,
+  "hasNextPage": false
+}
+```
+
 User roles:
 
 | Value | Role |
 | --- | --- |
 | `0` | Rider |
 | `1` | Driver |
+| `2` | Admin |
 
 ### Availability
 

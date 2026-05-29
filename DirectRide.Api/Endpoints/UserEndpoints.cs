@@ -59,9 +59,61 @@ public static class UserEndpoints
         })
         .RequireAuthorization();
 
-        group.MapGet("", async (AppDbContext db) =>
+        group.MapGet("", async (
+            AppDbContext db,
+            int page = 1,
+            int pageSize = 20,
+            string? search = null,
+            string? role = null,
+            string? status = null) =>
         {
-            var users = await db.Users
+            page = Math.Max(page, 1);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            var query = db.Users.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var searchTerm = $"%{search.Trim().ToLower()}%";
+                query = query.Where(u =>
+                    EF.Functions.Like((u.FirstName + " " + u.LastName).ToLower(), searchTerm) ||
+                    EF.Functions.Like(u.Email.ToLower(), searchTerm) ||
+                    EF.Functions.Like(u.PhoneNumber.ToLower(), searchTerm));
+            }
+
+            if (!string.IsNullOrWhiteSpace(role) && !role.Equals("All Roles", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Enum.TryParse<UserRole>(role, true, out var parsedRole))
+                {
+                    query = query.Where(u => u.Role == parsedRole);
+                }
+                else if (int.TryParse(role, out var roleValue) && Enum.IsDefined(typeof(UserRole), roleValue))
+                {
+                    query = query.Where(u => u.Role == (UserRole)roleValue);
+                }
+                else
+                {
+                    query = query.Where(_ => false);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(status) && !status.Equals("All Statuses", StringComparison.OrdinalIgnoreCase))
+            {
+                if (status.Equals("Deactivated", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(_ => false);
+                }
+            }
+
+            var totalItems = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+            var effectivePage = totalPages > 0 ? Math.Min(page, totalPages) : 1;
+
+            var users = await query
+                .OrderByDescending(u => u.CreatedAt)
+                .ThenBy(u => u.Id)
+                .Skip((effectivePage - 1) * pageSize)
+                .Take(pageSize)
                 .Select(u => new UserResponseDto
                 {
                     Id = u.Id,
@@ -75,7 +127,16 @@ public static class UserEndpoints
                 })
                 .ToListAsync();
 
-            return Results.Ok(users);
+            return Results.Ok(new PaginatedResponseDto<UserResponseDto>
+            {
+                Items = users,
+                Page = effectivePage,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                TotalPages = totalPages,
+                HasPreviousPage = effectivePage > 1,
+                HasNextPage = effectivePage < totalPages
+            });
         })
         .RequireAuthorization();
 
