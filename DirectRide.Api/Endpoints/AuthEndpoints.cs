@@ -13,6 +13,65 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/auth");
 
+        group.MapPost("/register", async (
+            AppDbContext db,
+            RegisterDto dto,
+            PasswordHasher<User> hasher,
+            JwtService jwtService) =>
+        {
+            var email = dto.Email.Trim();
+
+            if (string.IsNullOrWhiteSpace(dto.FirstName)
+                || string.IsNullOrWhiteSpace(dto.LastName)
+                || string.IsNullOrWhiteSpace(email)
+                || string.IsNullOrWhiteSpace(dto.PhoneNumber)
+                || string.IsNullOrWhiteSpace(dto.Password))
+            {
+                return Results.BadRequest("First name, last name, email, phone number, and password are required.");
+            }
+
+            if (!Enum.IsDefined(typeof(UserRole), dto.Role))
+            {
+                return Results.BadRequest("Invalid user role.");
+            }
+
+            var emailExists = await db.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower());
+
+            if (emailExists)
+            {
+                return Results.Conflict("Email is already registered.");
+            }
+
+            var user = new User
+            {
+                FirstName = dto.FirstName.Trim(),
+                LastName = dto.LastName.Trim(),
+                Email = email,
+                PhoneNumber = dto.PhoneNumber.Trim(),
+                Role = (UserRole)dto.Role
+            };
+
+            user.PasswordHash = hasher.HashPassword(user, dto.Password);
+
+            db.Users.Add(user);
+            await db.SaveChangesAsync();
+
+            var token = jwtService.GenerateToken(user);
+
+            return Results.Created($"/users/{user.Id}", new
+            {
+                token,
+                user = new
+                {
+                    user.Id,
+                    user.FirstName,
+                    user.LastName,
+                    user.Email,
+                    Role = user.Role.ToString()
+                }
+            });
+        });
+
         group.MapPost("/login", async (
             AppDbContext db,
             LoginDto dto,
