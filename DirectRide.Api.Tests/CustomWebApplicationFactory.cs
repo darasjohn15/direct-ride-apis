@@ -58,6 +58,7 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 {
     public const string AuthenticationScheme = "Test";
     public const string UserIdHeaderName = "X-Test-UserId";
+    public const string UserRoleHeaderName = "X-Test-UserRole";
 
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -72,11 +73,15 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         var userId = Request.Headers.TryGetValue(UserIdHeaderName, out var userIdHeader)
             ? userIdHeader.ToString()
             : "test-user";
+        var userRole = Request.Headers.TryGetValue(UserRoleHeaderName, out var userRoleHeader)
+            ? userRoleHeader.ToString()
+            : "Admin";
 
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, userId),
-            new Claim(ClaimTypes.Name, "Test User")
+            new Claim(ClaimTypes.Name, "Test User"),
+            new Claim(ClaimTypes.Role, userRole)
         };
 
         var identity = new ClaimsIdentity(claims, AuthenticationScheme);

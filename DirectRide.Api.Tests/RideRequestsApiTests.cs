@@ -158,7 +158,8 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var rideRequests = await response.Content.ReadFromJsonAsync<List<RideRequestResponseDto>>();
+        var rideRequestPage = await ReadRideRequestPageAsync(response);
+        var rideRequests = rideRequestPage.Items;
 
         rideRequests.Should().NotBeNull();
         rideRequests.Should().Contain(r =>
@@ -167,6 +168,42 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
             && r.DriverName == "Driver User"
             && r.PickupLocation == "Ponce City Market"
             && r.DropoffLocation == "Mercedes-Benz Stadium");
+    }
+
+    [Fact]
+    public async Task GetRideRequestById_ShouldReturnRideRequestDetails()
+    {
+        var createdRideRequest = await CreateRideRequestAsync(
+            driverEmail: "ride-detail-driver@test.com",
+            riderEmail: "ride-detail-rider@test.com",
+            daysFromNow: 4,
+            pickupLocation: "State Farm Arena",
+            dropoffLocation: "Centennial Olympic Park");
+
+        var response = await _client.GetAsync($"/ride-requests/{createdRideRequest.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var rideRequest = await response.Content.ReadFromJsonAsync<RideRequestResponseDto>();
+
+        rideRequest.Should().NotBeNull();
+        rideRequest!.Id.Should().Be(createdRideRequest.Id);
+        rideRequest.RiderId.Should().Be(createdRideRequest.RiderId);
+        rideRequest.RiderName.Should().Be("Rider User");
+        rideRequest.DriverId.Should().Be(createdRideRequest.DriverId);
+        rideRequest.DriverName.Should().Be("Driver User");
+        rideRequest.AvailabilitySlotId.Should().Be(createdRideRequest.AvailabilitySlotId);
+        rideRequest.PickupLocation.Should().Be("State Farm Arena");
+        rideRequest.DropoffLocation.Should().Be("Centennial Olympic Park");
+        rideRequest.Status.Should().Be("Pending");
+    }
+
+    [Fact]
+    public async Task GetRideRequestById_ShouldReturnNotFound_WhenRideRequestDoesNotExist()
+    {
+        var response = await _client.GetAsync($"/ride-requests/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -186,7 +223,8 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var rideRequests = await response.Content.ReadFromJsonAsync<List<RideRequestResponseDto>>();
+        var rideRequestPage = await ReadRideRequestPageAsync(response);
+        var rideRequests = rideRequestPage.Items;
 
         rideRequests.Should().NotBeNull();
         rideRequests.Should().Contain(r => r.Id == matchingRideRequest.Id);
@@ -227,7 +265,8 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var rideRequests = await response.Content.ReadFromJsonAsync<List<RideRequestResponseDto>>();
+        var rideRequestPage = await ReadRideRequestPageAsync(response);
+        var rideRequests = rideRequestPage.Items;
 
         rideRequests.Should().NotBeNull();
         rideRequests.Should().Contain(r => r.Id == matchingRideRequest.Id);
@@ -253,7 +292,8 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var rideRequests = await response.Content.ReadFromJsonAsync<List<RideRequestResponseDto>>();
+        var rideRequestPage = await ReadRideRequestPageAsync(response);
+        var rideRequests = rideRequestPage.Items;
 
         rideRequests.Should().NotBeNull();
         rideRequests.Should().Contain(r => r.Id == matchingRideRequest.Id);
@@ -275,7 +315,8 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var rideRequests = await response.Content.ReadFromJsonAsync<List<RideRequestResponseDto>>();
+        var rideRequestPage = await ReadRideRequestPageAsync(response);
+        var rideRequests = rideRequestPage.Items;
 
         rideRequests.Should().NotBeNull();
         rideRequests.Should().Contain(r => r.Id == rideRequest.Id);
@@ -300,12 +341,169 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var rideRequests = await response.Content.ReadFromJsonAsync<List<RideRequestResponseDto>>();
+        var rideRequestPage = await ReadRideRequestPageAsync(response);
+        var rideRequests = rideRequestPage.Items;
 
         rideRequests.Should().NotBeNull();
         rideRequests!.Select(r => r.Id).Should().Equal(upcomingRide.Id, laterUpcomingRide.Id);
         rideRequests.Should().NotContain(r => r.Id == pastRide.Id);
         rideRequests.Should().NotContain(r => r.Id == pendingUpcomingRide.Id);
+    }
+
+    [Fact]
+    public async Task GetRideRequests_ShouldReturnPaginatedRideRequests()
+    {
+        var driver = await CreateUserAsync("pagination-driver@test.com", role: 1);
+        var rider = await CreateUserAsync("pagination-rider@test.com", role: 0);
+
+        await CreateRideRequestAsync(driver, rider, DateTime.UtcNow.AddDays(20));
+        await CreateRideRequestAsync(driver, rider, DateTime.UtcNow.AddDays(21));
+        await CreateRideRequestAsync(driver, rider, DateTime.UtcNow.AddDays(22));
+
+        var response = await _client.GetAsync($"/ride-requests?driverId={driver.Id}&page=2&pageSize=2");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var rideRequestPage = await ReadRideRequestPageAsync(response);
+
+        rideRequestPage.Page.Should().Be(2);
+        rideRequestPage.PageSize.Should().Be(2);
+        rideRequestPage.TotalItems.Should().Be(3);
+        rideRequestPage.TotalPages.Should().Be(2);
+        rideRequestPage.HasPreviousPage.Should().BeTrue();
+        rideRequestPage.HasNextPage.Should().BeFalse();
+        rideRequestPage.Items.Should().HaveCount(1);
+        rideRequestPage.Items.Should().OnlyContain(r => r.DriverId == driver.Id);
+    }
+
+    [Fact]
+    public async Task PutRideRequest_ShouldUpdateEditableFieldsAndMoveBookedSlot()
+    {
+        var originalDriver = await CreateUserAsync("put-original-driver@test.com", role: 1);
+        var originalRider = await CreateUserAsync("put-original-rider@test.com", role: 0);
+        var originalRideRequest = await CreateRideRequestAsync(
+            originalDriver,
+            originalRider,
+            DateTime.UtcNow.AddDays(30));
+
+        var updatedDriver = await CreateUserAsync(
+            "put-updated-driver@test.com",
+            role: 1,
+            firstName: "Updated",
+            lastName: "Driver");
+        var updatedRider = await CreateUserAsync(
+            "put-updated-rider@test.com",
+            role: 0,
+            firstName: "Updated",
+            lastName: "Rider");
+        var updatedSlotStartTime = new DateTime(2026, 7, 20, 14, 0, 0, DateTimeKind.Utc);
+        var updatedSlot = await CreateAvailabilitySlotAsync(updatedDriver.Id, updatedSlotStartTime);
+        var updatedCreatedAt = new DateTime(2026, 7, 19, 12, 30, 0, DateTimeKind.Utc);
+        var updatedCompletedAt = new DateTime(2026, 7, 20, 15, 5, 0, DateTimeKind.Utc);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/ride-requests/{originalRideRequest.Id}",
+            new UpdateRideRequestDto
+            {
+                RiderId = updatedRider.Id,
+                DriverId = updatedDriver.Id,
+                AvailabilitySlotId = updatedSlot.Id,
+                PickupLocation = "Georgia Aquarium",
+                DropoffLocation = "Fox Theatre",
+                FareAmount = 84.25m,
+                DriverEarningsAmount = 72.50m,
+                Status = RideRequestStatus.Completed,
+                CreatedAt = updatedCreatedAt,
+                CompletedAt = updatedCompletedAt
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var updatedRideRequest = await response.Content.ReadFromJsonAsync<RideRequestResponseDto>();
+
+        updatedRideRequest.Should().NotBeNull();
+        updatedRideRequest!.Id.Should().Be(originalRideRequest.Id);
+        updatedRideRequest.RiderId.Should().Be(updatedRider.Id);
+        updatedRideRequest.RiderName.Should().Be("Updated Rider");
+        updatedRideRequest.DriverId.Should().Be(updatedDriver.Id);
+        updatedRideRequest.DriverName.Should().Be("Updated Driver");
+        updatedRideRequest.AvailabilitySlotId.Should().Be(updatedSlot.Id);
+        updatedRideRequest.SlotStartTime.Should().Be(updatedSlotStartTime);
+        updatedRideRequest.PickupLocation.Should().Be("Georgia Aquarium");
+        updatedRideRequest.DropoffLocation.Should().Be("Fox Theatre");
+        updatedRideRequest.FareAmount.Should().Be(84.25m);
+        updatedRideRequest.DriverEarningsAmount.Should().Be(72.50m);
+        updatedRideRequest.Status.Should().Be("Completed");
+        updatedRideRequest.CreatedAt.Should().Be(updatedCreatedAt);
+        updatedRideRequest.CompletedAt.Should().Be(updatedCompletedAt);
+
+        var availabilityResponse = await _client.GetAsync("/availability");
+        var availableSlots = await availabilityResponse.Content.ReadFromJsonAsync<List<AvailabilitySlotResponseDto>>();
+
+        availableSlots.Should().Contain(s => s.Id == originalRideRequest.AvailabilitySlotId);
+        availableSlots.Should().NotContain(s => s.Id == updatedSlot.Id);
+    }
+
+    [Fact]
+    public async Task PutRideRequest_ShouldReturnBadRequest_WhenAvailabilitySlotIsBookedByAnotherRide()
+    {
+        var rideRequest = await CreateRideRequestAsync(
+            driverEmail: "put-booked-driver@test.com",
+            riderEmail: "put-booked-rider@test.com",
+            daysFromNow: 31);
+        var otherRideRequest = await CreateRideRequestAsync(
+            driverEmail: "put-booked-other-driver@test.com",
+            riderEmail: "put-booked-other-rider@test.com",
+            daysFromNow: 32);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/ride-requests/{rideRequest.Id}",
+            new UpdateRideRequestDto
+            {
+                RiderId = rideRequest.RiderId,
+                DriverId = otherRideRequest.DriverId,
+                AvailabilitySlotId = otherRideRequest.AvailabilitySlotId,
+                PickupLocation = rideRequest.PickupLocation,
+                DropoffLocation = rideRequest.DropoffLocation,
+                FareAmount = rideRequest.FareAmount,
+                DriverEarningsAmount = rideRequest.DriverEarningsAmount,
+                Status = RideRequestStatus.Pending,
+                CreatedAt = rideRequest.CreatedAt,
+                CompletedAt = rideRequest.CompletedAt
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PutRideRequest_ShouldReturnForbidden_WhenUserIsNotAdmin()
+    {
+        var rideRequest = await CreateRideRequestAsync(
+            driverEmail: "put-forbidden-driver@test.com",
+            riderEmail: "put-forbidden-rider@test.com",
+            daysFromNow: 33);
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/ride-requests/{rideRequest.Id}")
+        {
+            Content = JsonContent.Create(new UpdateRideRequestDto
+            {
+                RiderId = rideRequest.RiderId,
+                DriverId = rideRequest.DriverId,
+                AvailabilitySlotId = rideRequest.AvailabilitySlotId,
+                PickupLocation = rideRequest.PickupLocation,
+                DropoffLocation = rideRequest.DropoffLocation,
+                FareAmount = rideRequest.FareAmount,
+                DriverEarningsAmount = rideRequest.DriverEarningsAmount,
+                Status = RideRequestStatus.Pending,
+                CreatedAt = rideRequest.CreatedAt,
+                CompletedAt = rideRequest.CompletedAt
+            })
+        };
+        request.Headers.Add(TestAuthHandler.UserRoleHeaderName, UserRole.Rider.ToString());
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -505,5 +703,16 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         var rideRequest = await response.Content.ReadFromJsonAsync<RideRequestResponseDto>();
 
         return rideRequest!;
+    }
+
+    private static async Task<PaginatedResponseDto<RideRequestResponseDto>> ReadRideRequestPageAsync(
+        HttpResponseMessage response)
+    {
+        var rideRequestPage = await response.Content
+            .ReadFromJsonAsync<PaginatedResponseDto<RideRequestResponseDto>>();
+
+        rideRequestPage.Should().NotBeNull();
+
+        return rideRequestPage!;
     }
 }

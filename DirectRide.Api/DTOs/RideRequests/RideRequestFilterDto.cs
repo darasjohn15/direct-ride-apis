@@ -4,6 +4,10 @@ namespace DirectRide.Api.DTOs.RideRequests;
 
 public class RideRequestFilterDto
 {
+    public int? Page { get; set; }
+
+    public int? PageSize { get; set; }
+
     public Guid? RiderId { get; set; }
 
     public string? RiderName { get; set; }

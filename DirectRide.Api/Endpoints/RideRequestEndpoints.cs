@@ -1,4 +1,5 @@
 using DirectRide.Api.Data;
+using DirectRide.Api.DTOs;
 using DirectRide.Api.DTOs.RideRequests;
 using DirectRide.Api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,9 @@ public static class RideRequestEndpoints
 
         group.MapGet("", async (AppDbContext db, [AsParameters] RideRequestFilterDto filters) =>
         {
+            var page = Math.Max(filters.Page ?? 1, 1);
+            var pageSize = Math.Clamp(filters.PageSize ?? 20, 1, 100);
+
             var query = db.RideRequests
                 .Include(r => r.Rider)
                 .Include(r => r.Driver)
@@ -108,10 +112,19 @@ public static class RideRequestEndpoints
             }
 
             var orderedQuery = filters.UpcomingOnly == true
-                ? query.OrderBy(r => r.AvailabilitySlot!.StartTime).ThenByDescending(r => r.CreatedAt)
-                : query.OrderByDescending(r => r.CreatedAt);
+                ? query.OrderBy(r => r.AvailabilitySlot!.StartTime)
+                    .ThenByDescending(r => r.CreatedAt)
+                    .ThenBy(r => r.Id)
+                : query.OrderByDescending(r => r.CreatedAt)
+                    .ThenBy(r => r.Id);
+
+            var totalItems = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+            var effectivePage = totalPages > 0 ? Math.Min(page, totalPages) : 1;
 
             var rideRequests = await orderedQuery
+                .Skip((effectivePage - 1) * pageSize)
+                .Take(pageSize)
                 .Select(r => new RideRequestResponseDto
                 {
                     Id = r.Id,
@@ -136,7 +149,52 @@ public static class RideRequestEndpoints
                 })
                 .ToListAsync();
 
-            return Results.Ok(rideRequests);
+            return Results.Ok(new PaginatedResponseDto<RideRequestResponseDto>
+            {
+                Items = rideRequests,
+                Page = effectivePage,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                TotalPages = totalPages,
+                HasPreviousPage = effectivePage > 1,
+                HasNextPage = effectivePage < totalPages
+            });
+        });
+
+        group.MapGet("/{id:guid}", async (AppDbContext db, Guid id) =>
+        {
+            var rideRequest = await db.RideRequests
+                .Include(r => r.Rider)
+                .Include(r => r.Driver)
+                .Include(r => r.AvailabilitySlot)
+                .Where(r => r.Id == id)
+                .Select(r => new RideRequestResponseDto
+                {
+                    Id = r.Id,
+                    RiderId = r.RiderId,
+                    RiderName = r.Rider != null
+                        ? $"{r.Rider.FirstName} {r.Rider.LastName}"
+                        : string.Empty,
+                    DriverId = r.DriverId,
+                    DriverName = r.Driver != null
+                        ? $"{r.Driver.FirstName} {r.Driver.LastName}"
+                        : string.Empty,
+                    AvailabilitySlotId = r.AvailabilitySlotId,
+                    SlotStartTime = r.AvailabilitySlot != null ? r.AvailabilitySlot.StartTime : default,
+                    SlotEndTime = r.AvailabilitySlot != null ? r.AvailabilitySlot.EndTime : default,
+                    PickupLocation = r.PickupLocation,
+                    DropoffLocation = r.DropoffLocation,
+                    FareAmount = r.FareAmount,
+                    DriverEarningsAmount = r.DriverEarningsAmount,
+                    Status = r.Status.ToString(),
+                    CreatedAt = r.CreatedAt,
+                    CompletedAt = r.CompletedAt
+                })
+                .FirstOrDefaultAsync();
+
+            return rideRequest is null
+                ? Results.NotFound("Ride request not found.")
+                : Results.Ok(rideRequest);
         });
 
         group.MapPost("", async (AppDbContext db, CreateRideRequestDto dto) =>
@@ -202,6 +260,98 @@ public static class RideRequestEndpoints
 
             return Results.Created($"/ride-requests/{request.Id}", response);
         });
+
+        group.MapPut("/{id:guid}", async (AppDbContext db, Guid id, UpdateRideRequestDto dto) =>
+        {
+            var request = await db.RideRequests
+                .Include(r => r.Rider)
+                .Include(r => r.Driver)
+                .Include(r => r.AvailabilitySlot)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (request is null)
+            {
+                return Results.NotFound("Ride request not found.");
+            }
+
+            var rider = await db.Users.FindAsync(dto.RiderId);
+            if (rider is null)
+            {
+                return Results.NotFound("Rider not found.");
+            }
+
+            var driver = await db.Users.FindAsync(dto.DriverId);
+            if (driver is null)
+            {
+                return Results.NotFound("Driver not found.");
+            }
+
+            if (driver.Role != UserRole.Driver)
+            {
+                return Results.BadRequest("User is not a driver.");
+            }
+
+            var slot = await db.AvailabilitySlots.FindAsync(dto.AvailabilitySlotId);
+            if (slot is null)
+            {
+                return Results.NotFound("Availability slot not found.");
+            }
+
+            if (slot.DriverId != dto.DriverId)
+            {
+                return Results.BadRequest("Availability slot does not belong to the selected driver.");
+            }
+
+            var slotIsBookedByAnotherRide = await db.RideRequests
+                .AnyAsync(r => r.Id != id && r.AvailabilitySlotId == dto.AvailabilitySlotId);
+
+            if (slotIsBookedByAnotherRide)
+            {
+                return Results.BadRequest("That availability slot is already booked.");
+            }
+
+            if (request.AvailabilitySlotId != dto.AvailabilitySlotId && request.AvailabilitySlot is not null)
+            {
+                request.AvailabilitySlot.IsBooked = false;
+            }
+
+            request.RiderId = dto.RiderId;
+            request.DriverId = dto.DriverId;
+            request.AvailabilitySlotId = dto.AvailabilitySlotId;
+            request.PickupLocation = dto.PickupLocation;
+            request.DropoffLocation = dto.DropoffLocation;
+            request.FareAmount = dto.FareAmount;
+            request.DriverEarningsAmount = dto.DriverEarningsAmount;
+            request.Status = dto.Status;
+            request.CreatedAt = dto.CreatedAt;
+            request.CompletedAt = dto.CompletedAt;
+
+            slot.IsBooked = dto.Status != RideRequestStatus.Declined;
+
+            await db.SaveChangesAsync();
+
+            var response = new RideRequestResponseDto
+            {
+                Id = request.Id,
+                RiderId = request.RiderId,
+                RiderName = $"{rider.FirstName} {rider.LastName}",
+                DriverId = request.DriverId,
+                DriverName = $"{driver.FirstName} {driver.LastName}",
+                AvailabilitySlotId = request.AvailabilitySlotId,
+                SlotStartTime = slot.StartTime,
+                SlotEndTime = slot.EndTime,
+                PickupLocation = request.PickupLocation,
+                DropoffLocation = request.DropoffLocation,
+                FareAmount = request.FareAmount,
+                DriverEarningsAmount = request.DriverEarningsAmount,
+                Status = request.Status.ToString(),
+                CreatedAt = request.CreatedAt,
+                CompletedAt = request.CompletedAt
+            };
+
+            return Results.Ok(response);
+        })
+        .RequireAuthorization(policy => policy.RequireRole(UserRole.Admin.ToString()));
 
         group.MapPatch("/{id}/status", async (AppDbContext db, Guid id, RideRequestStatus status) =>
         {

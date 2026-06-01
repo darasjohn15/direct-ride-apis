@@ -18,6 +18,16 @@ DirectRide is a private ride-booking backend that allows riders to book rides di
 - DTO-based API design
 - Integration test coverage
 
+## Architecture Diagrams
+
+### Backend Architecture
+
+![DirectRide backend architecture diagram](docs/API-structure-diagram.PNG)
+
+### Data Models
+
+![DirectRide data models diagram](docs/data-models-diagram.png)
+
 ## Endpoints
 
 Most endpoints require a bearer token from `POST /auth/login`. Public endpoints are noted below.
@@ -156,6 +166,7 @@ Create availability body:
 | --- | --- | --- | --- |
 | `GET` | `/ride-requests` | Required | Get ride requests with rider, driver, availability, fare, earnings, status, and completion details. |
 | `POST` | `/ride-requests` | Required | Create a ride request and mark the availability slot as booked. Fare and driver earnings are set from the driver's base fare. |
+| `PUT` | `/ride-requests/{id}` | Required | Update all editable ride request fields. Moving a ride to a different availability slot frees the old slot and books the new one. |
 | `PATCH` | `/ride-requests/{id}/status?status={status}` | Required | Update a ride request status. Declined requests free the availability slot; completed requests set `completedAt`. |
 
 `GET /ride-requests` query filters:
@@ -186,6 +197,23 @@ Create ride request body:
   "availabilitySlotId": "00000000-0000-0000-0000-000000000000",
   "pickupLocation": "123 Main St",
   "dropoffLocation": "456 Oak Ave"
+}
+```
+
+Update ride request body:
+
+```json
+{
+  "riderId": "00000000-0000-0000-0000-000000000000",
+  "driverId": "00000000-0000-0000-0000-000000000000",
+  "availabilitySlotId": "00000000-0000-0000-0000-000000000000",
+  "pickupLocation": "123 Main St",
+  "dropoffLocation": "456 Oak Ave",
+  "fareAmount": 84.25,
+  "driverEarningsAmount": 72.50,
+  "status": 3,
+  "createdAt": "2026-07-19T12:30:00Z",
+  "completedAt": "2026-07-20T15:05:00Z"
 }
 ```
 
