@@ -6,7 +6,7 @@ namespace DirectRide.Api.Tests;
 
 public class HealthApiTests : IClassFixture<CustomWebApplicationFactory>
 {
-    private const string AllowedOrigin = "http://direct-ride-dev-api-alb-1799009038.us-east-1.elb.amazonaws.com";
+    private const string AllowedOrigin = "http://direct-ride-frontend-dev.s3-website-us-east-1.amazonaws.com";
     private readonly HttpClient _client;
 
     public HealthApiTests(CustomWebApplicationFactory factory)
