@@ -9,6 +9,21 @@ DirectRide is a private ride-booking backend that allows riders to book rides di
 - Docker
 - xUnit (integration tests)
 
+## Database Configuration
+
+Local development and Docker can use `ConnectionStrings__DefaultConnection`. In AWS, the API can also build the PostgreSQL connection from individual environment variables:
+
+| Setting | Supported variables |
+| --- | --- |
+| Host | `DB_HOST`, `RDS_HOSTNAME`, `PGHOST` |
+| Port | `DB_PORT`, `RDS_PORT`, `PGPORT` |
+| Database | `DB_NAME`, `DB_DATABASE`, `RDS_DB_NAME`, `PGDATABASE` |
+| Username | `DB_USERNAME`, `DB_USER`, `RDS_USERNAME`, `PGUSER` |
+| Password | `DB_PASSWORD`, `RDS_PASSWORD`, `PGPASSWORD` |
+| SSL mode | `DB_SSL_MODE`, `RDS_SSL_MODE`, `PGSSLMODE` |
+
+When any individual database variable is present, those settings take precedence over the default connection string. If no port is supplied, the API uses PostgreSQL port `5432`.
+
 ## Features
 - User management (riders, drivers, and admins)
 - Driver availability scheduling

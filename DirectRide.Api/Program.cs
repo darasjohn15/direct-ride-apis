@@ -44,7 +44,7 @@ builder.Services.AddCors(options =>
 if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+        options.UseNpgsql(DatabaseConnectionString.Get(builder.Configuration)));
 }
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
