@@ -63,6 +63,9 @@ app.UseAuthorization();
 
 //app.UseHttpsRedirection();
 
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
+    .AllowAnonymous();
+
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapAvailabilityEndpoints();

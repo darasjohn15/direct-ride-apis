@@ -32,6 +32,12 @@ DirectRide is a private ride-booking backend that allows riders to book rides di
 
 Most endpoints require a bearer token from `POST /auth/login`. Public endpoints are noted below.
 
+### Health
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| `GET` | `/health` | Public | Returns API health status for deployment health checks. |
+
 ### Auth
 
 | Method | Endpoint | Auth | Description |
