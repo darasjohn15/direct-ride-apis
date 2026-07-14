@@ -1,7 +1,10 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using DirectRide.Api.Data;
 using DirectRide.Api.DTOs;
 using DirectRide.Api.DTOs.RideRequests;
 using DirectRide.Api.Models;
+using DirectRide.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace DirectRide.Api.Endpoints;
@@ -197,7 +200,10 @@ public static class RideRequestEndpoints
                 : Results.Ok(rideRequest);
         });
 
-        group.MapPost("", async (AppDbContext db, CreateRideRequestDto dto) =>
+        group.MapPost("", async (
+            AppDbContext db,
+            NotificationService notificationService,
+            CreateRideRequestDto dto) =>
         {
             var slot = await db.AvailabilitySlots.FindAsync(dto.AvailabilitySlotId);
 
@@ -239,6 +245,13 @@ public static class RideRequestEndpoints
 
             await db.SaveChangesAsync();
 
+            await notificationService.CreateNotificationAsync(
+                request.DriverId,
+                NotificationType.RideRequested,
+                "New ride request",
+                "You have a new ride request.",
+                request.Id);
+
             var response = new RideRequestResponseDto
             {
                 Id = request.Id,
@@ -261,7 +274,12 @@ public static class RideRequestEndpoints
             return Results.Created($"/ride-requests/{request.Id}", response);
         });
 
-        group.MapPut("/{id:guid}", async (AppDbContext db, Guid id, UpdateRideRequestDto dto) =>
+        group.MapPut("/{id:guid}", async (
+            ClaimsPrincipal claimsPrincipal,
+            AppDbContext db,
+            NotificationService notificationService,
+            Guid id,
+            UpdateRideRequestDto dto) =>
         {
             var request = await db.RideRequests
                 .Include(r => r.Rider)
@@ -315,6 +333,8 @@ public static class RideRequestEndpoints
                 request.AvailabilitySlot.IsBooked = false;
             }
 
+            var previousStatus = request.Status;
+
             request.RiderId = dto.RiderId;
             request.DriverId = dto.DriverId;
             request.AvailabilitySlotId = dto.AvailabilitySlotId;
@@ -329,6 +349,14 @@ public static class RideRequestEndpoints
             slot.IsBooked = dto.Status != RideRequestStatus.Declined;
 
             await db.SaveChangesAsync();
+
+            TryGetUserId(claimsPrincipal, out var actorUserId);
+            await CreateRideStatusNotificationAsync(
+                notificationService,
+                previousStatus,
+                request.Status,
+                request,
+                actorUserId);
 
             var response = new RideRequestResponseDto
             {
@@ -353,7 +381,12 @@ public static class RideRequestEndpoints
         })
         .RequireAuthorization(policy => policy.RequireRole(UserRole.Admin.ToString()));
 
-        group.MapPatch("/{id}/status", async (AppDbContext db, Guid id, RideRequestStatus status) =>
+        group.MapPatch("/{id}/status", async (
+            ClaimsPrincipal claimsPrincipal,
+            AppDbContext db,
+            NotificationService notificationService,
+            Guid id,
+            RideRequestStatus status) =>
         {
             var request = await db.RideRequests
                 .Include(r => r.Rider)
@@ -366,6 +399,7 @@ public static class RideRequestEndpoints
                 return Results.NotFound("Ride request not found.");
             }
 
+            var previousStatus = request.Status;
             request.Status = status;
 
             if (status == RideRequestStatus.Declined && request.AvailabilitySlot is not null)
@@ -389,6 +423,14 @@ public static class RideRequestEndpoints
             }
 
             await db.SaveChangesAsync();
+
+            TryGetUserId(claimsPrincipal, out var actorUserId);
+            await CreateRideStatusNotificationAsync(
+                notificationService,
+                previousStatus,
+                request.Status,
+                request,
+                actorUserId);
 
             var response = new RideRequestResponseDto
             {
@@ -417,5 +459,65 @@ public static class RideRequestEndpoints
         });
 
         return app;
+    }
+
+    private static bool TryGetUserId(ClaimsPrincipal claimsPrincipal, out Guid userId)
+    {
+        var userIdClaim = claimsPrincipal.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? claimsPrincipal.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        return Guid.TryParse(userIdClaim, out userId);
+    }
+
+    private static async Task CreateRideStatusNotificationAsync(
+        NotificationService notificationService,
+        RideRequestStatus previousStatus,
+        RideRequestStatus currentStatus,
+        RideRequest request,
+        Guid actorUserId)
+    {
+        if (previousStatus == currentStatus)
+        {
+            return;
+        }
+
+        switch (currentStatus)
+        {
+            case RideRequestStatus.Accepted:
+                await notificationService.CreateNotificationAsync(
+                    request.RiderId,
+                    NotificationType.RideAccepted,
+                    "Ride request accepted",
+                    "Your ride request was accepted.",
+                    request.Id);
+                break;
+
+            case RideRequestStatus.Declined:
+                await notificationService.CreateNotificationAsync(
+                    request.RiderId,
+                    NotificationType.RideDenied,
+                    "Ride request declined",
+                    "Your ride request was declined.",
+                    request.Id);
+                break;
+
+            case RideRequestStatus.Cancelled when actorUserId == request.RiderId:
+                await notificationService.CreateNotificationAsync(
+                    request.DriverId,
+                    NotificationType.RideCancelled,
+                    "Ride canceled",
+                    "The rider canceled the ride.",
+                    request.Id);
+                break;
+
+            case RideRequestStatus.Cancelled when actorUserId == request.DriverId:
+                await notificationService.CreateNotificationAsync(
+                    request.RiderId,
+                    NotificationType.RideCancelled,
+                    "Ride canceled",
+                    "Your driver canceled the ride.",
+                    request.Id);
+                break;
+        }
     }
 }

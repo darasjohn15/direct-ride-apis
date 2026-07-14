@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<AvailabilitySlot> AvailabilitySlots => Set<AvailabilitySlot>();
     public DbSet<RideRequest> RideRequests => Set<RideRequest>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +35,35 @@ public class AppDbContext : DbContext
             .WithOne(a => a.RideRequest)
             .HasForeignKey<RideRequest>(r => r.AvailabilitySlotId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Notification>()
+            .HasOne(n => n.User)
+            .WithMany(u => u.Notifications)
+            .HasForeignKey(n => n.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Notification>()
+            .HasOne(n => n.Ride)
+            .WithMany(r => r.Notifications)
+            .HasForeignKey(n => n.RideId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Notification>()
+            .Property(n => n.NotificationType)
+            .HasConversion<string>()
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<Notification>()
+            .Property(n => n.Title)
+            .HasMaxLength(150);
+
+        modelBuilder.Entity<Notification>()
+            .Property(n => n.IsRead)
+            .HasDefaultValue(false);
+
+        modelBuilder.Entity<Notification>()
+            .Property(n => n.CreatedAt)
+            .HasDefaultValueSql("now()");
 
         modelBuilder.Entity<User>()
             .Property(u => u.BaseFare)

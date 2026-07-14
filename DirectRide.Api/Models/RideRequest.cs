@@ -26,4 +26,6 @@ public class RideRequest
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? CompletedAt { get; set; }
+
+    public List<Notification> Notifications { get; set; } = new();
 }

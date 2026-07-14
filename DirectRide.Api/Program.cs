@@ -69,6 +69,7 @@ builder.Services
 
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<PasswordHasher<User>>();
 
 var app = builder.Build();
@@ -100,6 +101,7 @@ app.MapUserEndpoints();
 app.MapAvailabilityEndpoints();
 app.MapRideRequestEndpoints();
 app.MapEarningsEndpoints();
+app.MapNotificationEndpoints();
 
 app.Run();
 
