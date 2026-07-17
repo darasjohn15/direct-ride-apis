@@ -6,5 +6,6 @@ public enum NotificationType
     RideAccepted = 1,
     RideDenied = 2,
     RideCancelled = 3,
-    RideCompleted = 4
+    RideCompleted = 4,
+    RideStarted = 5
 }

@@ -20,7 +20,17 @@ public class UpdateRideRequestDto
 
     public RideRequestStatus Status { get; set; }
 
+    public DateTime ScheduledAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
+    public DateTime? StartedAt { get; set; }
+
     public DateTime? CompletedAt { get; set; }
+
+    public DateTime? CancelledAt { get; set; }
+
+    public Guid? CancelledByUserId { get; set; }
+
+    public string? CancellationReason { get; set; }
 }

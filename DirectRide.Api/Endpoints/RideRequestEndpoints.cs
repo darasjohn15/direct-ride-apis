@@ -147,8 +147,13 @@ public static class RideRequestEndpoints
                     FareAmount = r.FareAmount,
                     DriverEarningsAmount = r.DriverEarningsAmount,
                     Status = r.Status.ToString(),
+                    ScheduledAt = r.ScheduledAt,
                     CreatedAt = r.CreatedAt,
-                    CompletedAt = r.CompletedAt
+                    StartedAt = r.StartedAt,
+                    CompletedAt = r.CompletedAt,
+                    CancelledAt = r.CancelledAt,
+                    CancelledByUserId = r.CancelledByUserId,
+                    CancellationReason = r.CancellationReason
                 })
                 .ToListAsync();
 
@@ -190,8 +195,13 @@ public static class RideRequestEndpoints
                     FareAmount = r.FareAmount,
                     DriverEarningsAmount = r.DriverEarningsAmount,
                     Status = r.Status.ToString(),
+                    ScheduledAt = r.ScheduledAt,
                     CreatedAt = r.CreatedAt,
-                    CompletedAt = r.CompletedAt
+                    StartedAt = r.StartedAt,
+                    CompletedAt = r.CompletedAt,
+                    CancelledAt = r.CancelledAt,
+                    CancelledByUserId = r.CancelledByUserId,
+                    CancellationReason = r.CancellationReason
                 })
                 .FirstOrDefaultAsync();
 
@@ -236,6 +246,7 @@ public static class RideRequestEndpoints
                 AvailabilitySlotId = dto.AvailabilitySlotId,
                 PickupLocation = dto.PickupLocation,
                 DropoffLocation = dto.DropoffLocation,
+                ScheduledAt = dto.ScheduledAt ?? slot.StartTime,
                 FareAmount = driver.BaseFare,
                 DriverEarningsAmount = driver.BaseFare
             };
@@ -267,8 +278,13 @@ public static class RideRequestEndpoints
                 FareAmount = request.FareAmount,
                 DriverEarningsAmount = request.DriverEarningsAmount,
                 Status = request.Status.ToString(),
+                ScheduledAt = request.ScheduledAt,
                 CreatedAt = request.CreatedAt,
-                CompletedAt = request.CompletedAt
+                StartedAt = request.StartedAt,
+                CompletedAt = request.CompletedAt,
+                CancelledAt = request.CancelledAt,
+                CancelledByUserId = request.CancelledByUserId,
+                CancellationReason = request.CancellationReason
             };
 
             return Results.Created($"/ride-requests/{request.Id}", response);
@@ -343,8 +359,13 @@ public static class RideRequestEndpoints
             request.FareAmount = dto.FareAmount;
             request.DriverEarningsAmount = dto.DriverEarningsAmount;
             request.Status = dto.Status;
+            request.ScheduledAt = dto.ScheduledAt == default ? slot.StartTime : dto.ScheduledAt;
             request.CreatedAt = dto.CreatedAt;
+            request.StartedAt = dto.StartedAt;
             request.CompletedAt = dto.CompletedAt;
+            request.CancelledAt = dto.CancelledAt;
+            request.CancelledByUserId = dto.CancelledByUserId;
+            request.CancellationReason = dto.CancellationReason;
 
             slot.IsBooked = dto.Status != RideRequestStatus.Declined;
 
@@ -373,13 +394,147 @@ public static class RideRequestEndpoints
                 FareAmount = request.FareAmount,
                 DriverEarningsAmount = request.DriverEarningsAmount,
                 Status = request.Status.ToString(),
+                ScheduledAt = request.ScheduledAt,
                 CreatedAt = request.CreatedAt,
-                CompletedAt = request.CompletedAt
+                StartedAt = request.StartedAt,
+                CompletedAt = request.CompletedAt,
+                CancelledAt = request.CancelledAt,
+                CancelledByUserId = request.CancelledByUserId,
+                CancellationReason = request.CancellationReason
             };
 
             return Results.Ok(response);
         })
         .RequireAuthorization(policy => policy.RequireRole(UserRole.Admin.ToString()));
+
+        group.MapPatch("/{id:guid}/start", async (
+            AppDbContext db,
+            NotificationService notificationService,
+            Guid id) =>
+        {
+            var request = await db.RideRequests
+                .Include(r => r.Rider)
+                .Include(r => r.Driver)
+                .Include(r => r.AvailabilitySlot)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (request is null)
+            {
+                return Results.NotFound("Ride request not found.");
+            }
+
+            if (request.Status != RideRequestStatus.Accepted)
+            {
+                return Results.BadRequest("Ride must be accepted before it can be started.");
+            }
+
+            request.Status = RideRequestStatus.InProgress;
+            request.StartedAt ??= DateTime.UtcNow;
+            request.CompletedAt = null;
+            request.CancelledAt = null;
+            request.CancelledByUserId = null;
+            request.CancellationReason = null;
+
+            await db.SaveChangesAsync();
+
+            await notificationService.CreateNotificationAsync(
+                request.RiderId,
+                NotificationType.RideStarted,
+                "Ride started",
+                "Your ride has started.",
+                request.Id);
+
+            return Results.Ok(ToResponseDto(request));
+        });
+
+        group.MapPatch("/{id:guid}/complete", async (
+            AppDbContext db,
+            NotificationService notificationService,
+            Guid id) =>
+        {
+            var request = await db.RideRequests
+                .Include(r => r.Rider)
+                .Include(r => r.Driver)
+                .Include(r => r.AvailabilitySlot)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (request is null)
+            {
+                return Results.NotFound("Ride request not found.");
+            }
+
+            if (request.Status != RideRequestStatus.InProgress)
+            {
+                return Results.BadRequest("Ride must be in progress before it can be completed.");
+            }
+
+            request.Status = RideRequestStatus.Completed;
+            request.CompletedAt ??= DateTime.UtcNow;
+
+            if (request.FareAmount == 0.00m && request.Driver is not null)
+            {
+                request.FareAmount = request.Driver.BaseFare;
+                request.DriverEarningsAmount = request.Driver.BaseFare;
+            }
+
+            await db.SaveChangesAsync();
+
+            await notificationService.CreateNotificationAsync(
+                request.RiderId,
+                NotificationType.RideCompleted,
+                "Ride completed",
+                "Your ride has been completed.",
+                request.Id);
+
+            return Results.Ok(ToResponseDto(request));
+        });
+
+        group.MapPatch("/{id:guid}/cancel", async (
+            ClaimsPrincipal claimsPrincipal,
+            AppDbContext db,
+            NotificationService notificationService,
+            Guid id,
+            string? cancellationReason) =>
+        {
+            var request = await db.RideRequests
+                .Include(r => r.Rider)
+                .Include(r => r.Driver)
+                .Include(r => r.AvailabilitySlot)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (request is null)
+            {
+                return Results.NotFound("Ride request not found.");
+            }
+
+            if (request.Status != RideRequestStatus.Accepted)
+            {
+                return Results.BadRequest("Ride must be accepted before it can be cancelled.");
+            }
+
+            TryGetUserId(claimsPrincipal, out var actorUserId);
+
+            request.Status = RideRequestStatus.Cancelled;
+            request.CancelledAt ??= DateTime.UtcNow;
+            request.CancelledByUserId = actorUserId == default ? null : actorUserId;
+            request.CancellationReason = string.IsNullOrWhiteSpace(cancellationReason)
+                ? null
+                : cancellationReason.Trim();
+
+            if (request.AvailabilitySlot is not null)
+            {
+                request.AvailabilitySlot.IsBooked = false;
+            }
+
+            await db.SaveChangesAsync();
+
+            await CreateRideCancelledNotificationAsync(
+                notificationService,
+                request,
+                actorUserId);
+
+            return Results.Ok(ToResponseDto(request));
+        });
 
         group.MapPatch("/{id}/status", async (
             ClaimsPrincipal claimsPrincipal,
@@ -400,6 +555,7 @@ public static class RideRequestEndpoints
             }
 
             var previousStatus = request.Status;
+            TryGetUserId(claimsPrincipal, out var actorUserId);
             request.Status = status;
 
             if (status == RideRequestStatus.Declined && request.AvailabilitySlot is not null)
@@ -422,9 +578,29 @@ public static class RideRequestEndpoints
                 request.CompletedAt = null;
             }
 
+            if (status == RideRequestStatus.InProgress)
+            {
+                request.StartedAt ??= DateTime.UtcNow;
+            }
+            else if (status != RideRequestStatus.Completed)
+            {
+                request.StartedAt = null;
+            }
+
+            if (status == RideRequestStatus.Cancelled)
+            {
+                request.CancelledAt ??= DateTime.UtcNow;
+                request.CancelledByUserId ??= actorUserId == default ? null : actorUserId;
+            }
+            else
+            {
+                request.CancelledAt = null;
+                request.CancelledByUserId = null;
+                request.CancellationReason = null;
+            }
+
             await db.SaveChangesAsync();
 
-            TryGetUserId(claimsPrincipal, out var actorUserId);
             await CreateRideStatusNotificationAsync(
                 notificationService,
                 previousStatus,
@@ -451,8 +627,13 @@ public static class RideRequestEndpoints
                 FareAmount = request.FareAmount,
                 DriverEarningsAmount = request.DriverEarningsAmount,
                 Status = request.Status.ToString(),
+                ScheduledAt = request.ScheduledAt,
                 CreatedAt = request.CreatedAt,
-                CompletedAt = request.CompletedAt
+                StartedAt = request.StartedAt,
+                CompletedAt = request.CompletedAt,
+                CancelledAt = request.CancelledAt,
+                CancelledByUserId = request.CancelledByUserId,
+                CancellationReason = request.CancellationReason
             };
 
             return Results.Ok(response);
@@ -467,6 +648,37 @@ public static class RideRequestEndpoints
             ?? claimsPrincipal.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
         return Guid.TryParse(userIdClaim, out userId);
+    }
+
+    private static RideRequestResponseDto ToResponseDto(RideRequest request)
+    {
+        return new RideRequestResponseDto
+        {
+            Id = request.Id,
+            RiderId = request.RiderId,
+            RiderName = request.Rider is not null
+                ? $"{request.Rider.FirstName} {request.Rider.LastName}"
+                : string.Empty,
+            DriverId = request.DriverId,
+            DriverName = request.Driver is not null
+                ? $"{request.Driver.FirstName} {request.Driver.LastName}"
+                : string.Empty,
+            AvailabilitySlotId = request.AvailabilitySlotId,
+            SlotStartTime = request.AvailabilitySlot?.StartTime ?? default,
+            SlotEndTime = request.AvailabilitySlot?.EndTime ?? default,
+            PickupLocation = request.PickupLocation,
+            DropoffLocation = request.DropoffLocation,
+            FareAmount = request.FareAmount,
+            DriverEarningsAmount = request.DriverEarningsAmount,
+            Status = request.Status.ToString(),
+            ScheduledAt = request.ScheduledAt,
+            CreatedAt = request.CreatedAt,
+            StartedAt = request.StartedAt,
+            CompletedAt = request.CompletedAt,
+            CancelledAt = request.CancelledAt,
+            CancelledByUserId = request.CancelledByUserId,
+            CancellationReason = request.CancellationReason
+        };
     }
 
     private static async Task CreateRideStatusNotificationAsync(
@@ -501,23 +713,56 @@ public static class RideRequestEndpoints
                     request.Id);
                 break;
 
-            case RideRequestStatus.Cancelled when actorUserId == request.RiderId:
+            case RideRequestStatus.InProgress:
                 await notificationService.CreateNotificationAsync(
-                    request.DriverId,
-                    NotificationType.RideCancelled,
-                    "Ride canceled",
-                    "The rider canceled the ride.",
+                    request.RiderId,
+                    NotificationType.RideStarted,
+                    "Ride started",
+                    "Your ride has started.",
                     request.Id);
                 break;
 
-            case RideRequestStatus.Cancelled when actorUserId == request.DriverId:
+            case RideRequestStatus.Completed:
                 await notificationService.CreateNotificationAsync(
                     request.RiderId,
-                    NotificationType.RideCancelled,
-                    "Ride canceled",
-                    "Your driver canceled the ride.",
+                    NotificationType.RideCompleted,
+                    "Ride completed",
+                    "Your ride has been completed.",
                     request.Id);
                 break;
+
+            case RideRequestStatus.Cancelled:
+                await CreateRideCancelledNotificationAsync(notificationService, request, actorUserId);
+                break;
         }
+    }
+
+    private static async Task CreateRideCancelledNotificationAsync(
+        NotificationService notificationService,
+        RideRequest request,
+        Guid actorUserId)
+    {
+        if (actorUserId == request.RiderId)
+        {
+            await notificationService.CreateNotificationAsync(
+                request.DriverId,
+                NotificationType.RideCancelled,
+                "Ride canceled",
+                "The rider canceled the ride.",
+                request.Id);
+
+            return;
+        }
+
+        var message = actorUserId == request.DriverId
+            ? "Your driver canceled the ride."
+            : "Your ride was canceled.";
+
+        await notificationService.CreateNotificationAsync(
+            request.RiderId,
+            NotificationType.RideCancelled,
+            "Ride canceled",
+            message,
+            request.Id);
     }
 }

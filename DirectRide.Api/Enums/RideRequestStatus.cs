@@ -6,5 +6,6 @@ public enum RideRequestStatus
     Accepted = 1,
     Declined = 2,
     Completed = 3,
-    Cancelled = 4
+    Cancelled = 4,
+    InProgress = 5
 }

@@ -23,9 +23,19 @@ public class RideRequest
 
     public RideRequestStatus Status { get; set; } = RideRequestStatus.Pending;
 
+    public DateTime ScheduledAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public DateTime? StartedAt { get; set; }
+
     public DateTime? CompletedAt { get; set; }
+
+    public DateTime? CancelledAt { get; set; }
+
+    public Guid? CancelledByUserId { get; set; }
+
+    public string? CancellationReason { get; set; }
 
     public List<Notification> Notifications { get; set; } = new();
 }

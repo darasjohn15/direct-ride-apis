@@ -700,6 +700,145 @@ public class RideRequestsApiTests : IClassFixture<CustomWebApplicationFactory>
         notification!.Message.Should().Be("Your driver canceled the ride.");
     }
 
+    [Fact]
+    public async Task PatchStartRide_ShouldReturnBadRequest_WhenRideIsNotAccepted()
+    {
+        var rideRequest = await CreateRideRequestAsync(
+            driverEmail: "start-pending-driver@test.com",
+            riderEmail: "start-pending-rider@test.com",
+            daysFromNow: 17);
+
+        var response = await _client.PatchAsync($"/ride-requests/{rideRequest.Id}/start", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PatchStartRide_ShouldMoveAcceptedRideToInProgress_AndNotifyRider()
+    {
+        var rideRequest = await CreateRideRequestAsync(
+            driverEmail: "start-accepted-driver@test.com",
+            riderEmail: "start-accepted-rider@test.com",
+            daysFromNow: 18);
+        await _client.PatchAsync(
+            $"/ride-requests/{rideRequest.Id}/status?status={RideRequestStatus.Accepted}",
+            content: null);
+
+        var response = await _client.PatchAsync($"/ride-requests/{rideRequest.Id}/start", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var startedRide = await response.Content.ReadFromJsonAsync<RideRequestResponseDto>();
+        startedRide.Should().NotBeNull();
+        startedRide!.Status.Should().Be("InProgress");
+        startedRide.StartedAt.Should().NotBeNull();
+
+        var notification = await GetNotificationAsync(rideRequest.RiderId, rideRequest.Id, NotificationType.RideStarted);
+
+        notification.Should().NotBeNull();
+        notification!.Message.Should().Be("Your ride has started.");
+    }
+
+    [Fact]
+    public async Task PatchCompleteRide_ShouldMoveInProgressRideToCompleted_AndNotifyRider()
+    {
+        var rideRequest = await CreateRideRequestAsync(
+            driverEmail: "complete-driver@test.com",
+            riderEmail: "complete-rider@test.com",
+            daysFromNow: 19);
+        await _client.PatchAsync(
+            $"/ride-requests/{rideRequest.Id}/status?status={RideRequestStatus.Accepted}",
+            content: null);
+        await _client.PatchAsync($"/ride-requests/{rideRequest.Id}/start", content: null);
+
+        var response = await _client.PatchAsync($"/ride-requests/{rideRequest.Id}/complete", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var completedRide = await response.Content.ReadFromJsonAsync<RideRequestResponseDto>();
+        completedRide.Should().NotBeNull();
+        completedRide!.Status.Should().Be("Completed");
+        completedRide.CompletedAt.Should().NotBeNull();
+
+        var notification = await GetNotificationAsync(rideRequest.RiderId, rideRequest.Id, NotificationType.RideCompleted);
+
+        notification.Should().NotBeNull();
+        notification!.Message.Should().Be("Your ride has been completed.");
+    }
+
+    [Fact]
+    public async Task PatchCompleteRide_ShouldReturnBadRequest_WhenRideIsNotInProgress()
+    {
+        var rideRequest = await CreateRideRequestAsync(
+            driverEmail: "complete-accepted-driver@test.com",
+            riderEmail: "complete-accepted-rider@test.com",
+            daysFromNow: 20);
+        await _client.PatchAsync(
+            $"/ride-requests/{rideRequest.Id}/status?status={RideRequestStatus.Accepted}",
+            content: null);
+
+        var response = await _client.PatchAsync($"/ride-requests/{rideRequest.Id}/complete", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PatchCancelRide_ShouldCancelAcceptedRide_AndNotifyDriver_WhenRiderCancels()
+    {
+        var rideRequest = await CreateRideRequestAsync(
+            driverEmail: "cancel-rider-driver@test.com",
+            riderEmail: "cancel-rider-rider@test.com",
+            daysFromNow: 21);
+        await _client.PatchAsync(
+            $"/ride-requests/{rideRequest.Id}/status?status={RideRequestStatus.Accepted}",
+            content: null);
+        var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/ride-requests/{rideRequest.Id}/cancel?cancellationReason=Changed%20plans");
+        request.Headers.Add(TestAuthHandler.UserIdHeaderName, rideRequest.RiderId.ToString());
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var cancelledRide = await response.Content.ReadFromJsonAsync<RideRequestResponseDto>();
+        cancelledRide.Should().NotBeNull();
+        cancelledRide!.Status.Should().Be("Cancelled");
+        cancelledRide.CancelledAt.Should().NotBeNull();
+        cancelledRide.CancelledByUserId.Should().Be(rideRequest.RiderId);
+        cancelledRide.CancellationReason.Should().Be("Changed plans");
+
+        var notification = await GetNotificationAsync(rideRequest.DriverId, rideRequest.Id, NotificationType.RideCancelled);
+
+        notification.Should().NotBeNull();
+        notification!.Message.Should().Be("The rider canceled the ride.");
+    }
+
+    [Fact]
+    public async Task PatchCancelRide_ShouldNotifyRider_WhenDriverCancels()
+    {
+        var rideRequest = await CreateRideRequestAsync(
+            driverEmail: "cancel-driver-driver@test.com",
+            riderEmail: "cancel-driver-rider@test.com",
+            daysFromNow: 22);
+        await _client.PatchAsync(
+            $"/ride-requests/{rideRequest.Id}/status?status={RideRequestStatus.Accepted}",
+            content: null);
+        var request = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/ride-requests/{rideRequest.Id}/cancel");
+        request.Headers.Add(TestAuthHandler.UserIdHeaderName, rideRequest.DriverId.ToString());
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var notification = await GetNotificationAsync(rideRequest.RiderId, rideRequest.Id, NotificationType.RideCancelled);
+
+        notification.Should().NotBeNull();
+        notification!.Message.Should().Be("Your driver canceled the ride.");
+    }
+
     private async Task<UserResponseDto> CreateUserAsync(
         string email,
         int role,
