@@ -21,9 +21,9 @@ public class UsersApiTests : IClassFixture<CustomWebApplicationFactory>
     {
         var request = new CreateUserDto
         {
-            FirstName = "Razzo",
+            FirstName = "Sample",
             LastName = "Driver",
-            Email = "razzo@test.com",
+            Email = "sample-driver@test.com",
             PhoneNumber = "555-555-5555",
             Role = 1,
             Password = "CorrectHorse123!"
@@ -36,7 +36,7 @@ public class UsersApiTests : IClassFixture<CustomWebApplicationFactory>
         var user = await response.Content.ReadFromJsonAsync<UserResponseDto>();
 
         user.Should().NotBeNull();
-        user!.FirstName.Should().Be("Razzo");
+        user!.FirstName.Should().Be("Sample");
         user.LastName.Should().Be("Driver");
         user.Role.Should().Be("Driver");
     }
@@ -294,9 +294,9 @@ public class UsersApiTests : IClassFixture<CustomWebApplicationFactory>
         var user = await response.Content.ReadFromJsonAsync<User>();
 
         user.Should().NotBeNull();
-        user!.FirstName.Should().Be("Razzo");
+        user!.FirstName.Should().Be("Sample");
         user.LastName.Should().Be("Driver");
-        user.Email.Should().Be("razzo@directride.com");
+        user.Email.Should().Be("sample.driver@directride.com");
         user.PhoneNumber.Should().Be("555-555-5555");
         user.Role.Should().Be(UserRole.Driver);
     }

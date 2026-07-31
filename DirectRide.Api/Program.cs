@@ -69,6 +69,9 @@ builder.Services
 
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<AvailabilityService>();
+builder.Services.AddScoped<RideRequestService>();
+builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<PasswordHasher<User>>();
 

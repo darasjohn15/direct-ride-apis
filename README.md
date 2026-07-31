@@ -84,9 +84,9 @@ Create user body:
 
 ```json
 {
-  "firstName": "Razzo",
+  "firstName": "Sample",
   "lastName": "Driver",
-  "email": "razzo@directride.com",
+  "email": "sample.driver@directride.com",
   "phoneNumber": "555-555-5555",
   "role": 1,
   "password": "password123"
@@ -97,9 +97,9 @@ Update user body:
 
 ```json
 {
-  "firstName": "Razzo",
+  "firstName": "Sample",
   "lastName": "Driver",
-  "email": "razzo@directride.com",
+  "email": "sample.driver@directride.com",
   "phoneNumber": "555-555-5555",
   "role": 1,
   "baseFare": 25.00
@@ -125,9 +125,9 @@ Patch user body supports any subset of `firstName`, `lastName`, `email`, `phoneN
   "items": [
     {
       "id": "00000000-0000-0000-0000-000000000000",
-      "firstName": "Razzo",
+      "firstName": "Sample",
       "lastName": "Driver",
-      "email": "razzo@directride.com",
+      "email": "sample.driver@directride.com",
       "phoneNumber": "555-555-5555",
       "role": "Driver",
       "baseFare": 25.00
