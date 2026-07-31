@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using DirectRide.Api.Services;
-using DirectRide.Api.Endpoints;
+using DirectRide.Api.Controllers;
 using DirectRide.Api.Models;
 
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
@@ -99,12 +99,12 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }))
     .AllowAnonymous();
 
-app.MapAuthEndpoints();
-app.MapUserEndpoints();
-app.MapAvailabilityEndpoints();
-app.MapRideRequestEndpoints();
-app.MapEarningsEndpoints();
-app.MapNotificationEndpoints();
+app.MapAuthController();
+app.MapUserController();
+app.MapAvailabilityController();
+app.MapRideRequestController();
+app.MapEarningsController();
+app.MapNotificationController();
 
 app.Run();
 

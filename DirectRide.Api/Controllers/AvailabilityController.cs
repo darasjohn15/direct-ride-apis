@@ -1,11 +1,11 @@
 using DirectRide.Api.DTOs.AvailabilitySlots;
 using DirectRide.Api.Services;
 
-namespace DirectRide.Api.Endpoints;
+namespace DirectRide.Api.Controllers;
 
-public static class AvailabilityEndpoints
+public static class AvailabilityController
 {
-    public static IEndpointRouteBuilder MapAvailabilityEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapAvailabilityController(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/availability")
             .RequireAuthorization();

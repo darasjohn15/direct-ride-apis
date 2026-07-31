@@ -3,11 +3,11 @@ using DirectRide.Api.Models;
 using DirectRide.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
-namespace DirectRide.Api.Endpoints;
+namespace DirectRide.Api.Controllers;
 
-public static class EarningsEndpoints
+public static class EarningsController
 {
-    public static IEndpointRouteBuilder MapEarningsEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapEarningsController(this IEndpointRouteBuilder app)
     {
         app.MapEarningsGroup("/api/earnings");
         app.MapEarningsGroup("/earnings");

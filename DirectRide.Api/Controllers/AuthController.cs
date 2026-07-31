@@ -5,11 +5,11 @@ using DirectRide.Api.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace DirectRide.Api.Endpoints;
+namespace DirectRide.Api.Controllers;
 
-public static class AuthEndpoints
+public static class AuthController
 {
-    public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapAuthController(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/auth");
 

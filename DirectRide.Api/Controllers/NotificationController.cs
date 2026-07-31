@@ -6,11 +6,11 @@ using DirectRide.Api.DTOs.Notifications;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace DirectRide.Api.Endpoints;
+namespace DirectRide.Api.Controllers;
 
-public static class NotificationEndpoints
+public static class NotificationController
 {
-    public static IEndpointRouteBuilder MapNotificationEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapNotificationController(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/notifications")
             .RequireAuthorization();

@@ -4,11 +4,11 @@ using DirectRide.Api.DTOs;
 using DirectRide.Api.Models;
 using DirectRide.Api.Services;
 
-namespace DirectRide.Api.Endpoints;
+namespace DirectRide.Api.Controllers;
 
-public static class UserEndpoints
+public static class UserController
 {
-    public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapUserController(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/users");
 

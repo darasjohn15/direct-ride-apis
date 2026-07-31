@@ -4,11 +4,11 @@ using DirectRide.Api.DTOs.RideRequests;
 using DirectRide.Api.Models;
 using DirectRide.Api.Services;
 
-namespace DirectRide.Api.Endpoints;
+namespace DirectRide.Api.Controllers;
 
-public static class RideRequestEndpoints
+public static class RideRequestController
 {
-    public static IEndpointRouteBuilder MapRideRequestEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapRideRequestController(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/ride-requests")
             .RequireAuthorization();
