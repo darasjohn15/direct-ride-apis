@@ -1,15 +1,15 @@
-using DirectRide.Api.Data;
 using DirectRide.Api.Models;
+using DirectRide.Api.Repositories;
 
 namespace DirectRide.Api.Services;
 
 public class NotificationService
 {
-    private readonly AppDbContext _db;
+    private readonly INotificationRepository _notifications;
 
-    public NotificationService(AppDbContext db)
+    public NotificationService(INotificationRepository notifications)
     {
-        _db = db;
+        _notifications = notifications;
     }
 
     public async Task<Notification> CreateNotificationAsync(
@@ -29,8 +29,8 @@ public class NotificationService
             RideId = rideId
         };
 
-        _db.Notifications.Add(notification);
-        await _db.SaveChangesAsync(cancellationToken);
+        _notifications.Add(notification);
+        await _notifications.SaveChangesAsync(cancellationToken);
 
         return notification;
     }

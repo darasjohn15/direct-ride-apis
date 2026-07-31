@@ -8,6 +8,7 @@ using System.Text;
 using DirectRide.Api.Services;
 using DirectRide.Api.Controllers;
 using DirectRide.Api.Models;
+using DirectRide.Api.Repositories;
 
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
@@ -68,6 +69,10 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddScoped<IAvailabilitySlotRepository, AvailabilitySlotRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IRideRequestRepository, RideRequestRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<AvailabilityService>();
 builder.Services.AddScoped<RideRequestService>();

@@ -1,19 +1,27 @@
-using DirectRide.Api.Data;
 using DirectRide.Api.DTOs;
 using DirectRide.Api.DTOs.RideRequests;
 using DirectRide.Api.Models;
+using DirectRide.Api.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace DirectRide.Api.Services;
 
 public class RideRequestService
 {
-    private readonly AppDbContext _db;
+    private readonly IAvailabilitySlotRepository _availabilitySlots;
     private readonly NotificationService _notificationService;
+    private readonly IRideRequestRepository _rideRequests;
+    private readonly IUserRepository _users;
 
-    public RideRequestService(AppDbContext db, NotificationService notificationService)
+    public RideRequestService(
+        IRideRequestRepository rideRequests,
+        IAvailabilitySlotRepository availabilitySlots,
+        IUserRepository users,
+        NotificationService notificationService)
     {
-        _db = db;
+        _rideRequests = rideRequests;
+        _availabilitySlots = availabilitySlots;
+        _users = users;
         _notificationService = notificationService;
     }
 
@@ -24,11 +32,7 @@ public class RideRequestService
         var page = Math.Max(filters.Page ?? 1, 1);
         var pageSize = Math.Clamp(filters.PageSize ?? 20, 1, 100);
 
-        var query = _db.RideRequests
-            .Include(r => r.Rider)
-            .Include(r => r.Driver)
-            .Include(r => r.AvailabilitySlot)
-            .AsQueryable();
+        var query = _rideRequests.QueryWithDetails();
 
         query = ApplyFilters(query, filters);
 
@@ -64,11 +68,7 @@ public class RideRequestService
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var rideRequest = await _db.RideRequests
-            .Include(r => r.Rider)
-            .Include(r => r.Driver)
-            .Include(r => r.AvailabilitySlot)
-            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        var rideRequest = await _rideRequests.GetByIdWithDetailsAsync(id, cancellationToken);
 
         return rideRequest is null
             ? RideRequestServiceResult<RideRequestResponseDto>.NotFound("Ride request not found.")
@@ -79,7 +79,7 @@ public class RideRequestService
         CreateRideRequestDto dto,
         CancellationToken cancellationToken = default)
     {
-        var slot = await _db.AvailabilitySlots.FindAsync([dto.AvailabilitySlotId], cancellationToken);
+        var slot = await _availabilitySlots.GetByIdAsync(dto.AvailabilitySlotId, cancellationToken);
 
         if (slot is null)
         {
@@ -91,13 +91,13 @@ public class RideRequestService
             return RideRequestServiceResult<RideRequestResponseDto>.BadRequest("That availability slot is already booked.");
         }
 
-        var rider = await _db.Users.FindAsync([dto.RiderId], cancellationToken);
+        var rider = await _users.GetByIdAsync(dto.RiderId, cancellationToken);
         if (rider is null)
         {
             return RideRequestServiceResult<RideRequestResponseDto>.NotFound("Rider not found.");
         }
 
-        var driver = await _db.Users.FindAsync([slot.DriverId], cancellationToken);
+        var driver = await _users.GetByIdAsync(slot.DriverId, cancellationToken);
         if (driver is null)
         {
             return RideRequestServiceResult<RideRequestResponseDto>.NotFound("Driver not found.");
@@ -115,10 +115,10 @@ public class RideRequestService
             DriverEarningsAmount = driver.BaseFare
         };
 
-        _db.RideRequests.Add(request);
+        _rideRequests.Add(request);
         slot.IsBooked = true;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _rideRequests.SaveChangesAsync(cancellationToken);
 
         await _notificationService.CreateNotificationAsync(
             request.DriverId,
@@ -144,13 +144,13 @@ public class RideRequestService
             return RideRequestServiceResult<RideRequestResponseDto>.NotFound("Ride request not found.");
         }
 
-        var rider = await _db.Users.FindAsync([dto.RiderId], cancellationToken);
+        var rider = await _users.GetByIdAsync(dto.RiderId, cancellationToken);
         if (rider is null)
         {
             return RideRequestServiceResult<RideRequestResponseDto>.NotFound("Rider not found.");
         }
 
-        var driver = await _db.Users.FindAsync([dto.DriverId], cancellationToken);
+        var driver = await _users.GetByIdAsync(dto.DriverId, cancellationToken);
         if (driver is null)
         {
             return RideRequestServiceResult<RideRequestResponseDto>.NotFound("Driver not found.");
@@ -161,7 +161,7 @@ public class RideRequestService
             return RideRequestServiceResult<RideRequestResponseDto>.BadRequest("User is not a driver.");
         }
 
-        var slot = await _db.AvailabilitySlots.FindAsync([dto.AvailabilitySlotId], cancellationToken);
+        var slot = await _availabilitySlots.GetByIdAsync(dto.AvailabilitySlotId, cancellationToken);
         if (slot is null)
         {
             return RideRequestServiceResult<RideRequestResponseDto>.NotFound("Availability slot not found.");
@@ -173,8 +173,10 @@ public class RideRequestService
                 "Availability slot does not belong to the selected driver.");
         }
 
-        var slotIsBookedByAnotherRide = await _db.RideRequests
-            .AnyAsync(r => r.Id != id && r.AvailabilitySlotId == dto.AvailabilitySlotId, cancellationToken);
+        var slotIsBookedByAnotherRide = await _rideRequests.AvailabilitySlotHasRideRequestAsync(
+            id,
+            dto.AvailabilitySlotId,
+            cancellationToken);
 
         if (slotIsBookedByAnotherRide)
         {
@@ -206,7 +208,7 @@ public class RideRequestService
 
         slot.IsBooked = dto.Status != RideRequestStatus.Declined;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _rideRequests.SaveChangesAsync(cancellationToken);
 
         await CreateRideStatusNotificationAsync(previousStatus, request.Status, request, actorUserId, cancellationToken);
 
@@ -237,7 +239,7 @@ public class RideRequestService
         request.CancelledByUserId = null;
         request.CancellationReason = null;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _rideRequests.SaveChangesAsync(cancellationToken);
 
         await _notificationService.CreateNotificationAsync(
             request.RiderId,
@@ -272,7 +274,7 @@ public class RideRequestService
 
         SetBaseFareIfMissing(request);
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _rideRequests.SaveChangesAsync(cancellationToken);
 
         await _notificationService.CreateNotificationAsync(
             request.RiderId,
@@ -316,7 +318,7 @@ public class RideRequestService
             request.AvailabilitySlot.IsBooked = false;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _rideRequests.SaveChangesAsync(cancellationToken);
 
         await CreateRideCancelledNotificationAsync(request, actorUserId, cancellationToken);
 
@@ -375,7 +377,7 @@ public class RideRequestService
             request.CancellationReason = null;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _rideRequests.SaveChangesAsync(cancellationToken);
 
         await CreateRideStatusNotificationAsync(previousStatus, request.Status, request, actorUserId, cancellationToken);
 
@@ -476,11 +478,7 @@ public class RideRequestService
 
     private async Task<RideRequest?> GetRideRequestEntityAsync(Guid id, CancellationToken cancellationToken)
     {
-        return await _db.RideRequests
-            .Include(r => r.Rider)
-            .Include(r => r.Driver)
-            .Include(r => r.AvailabilitySlot)
-            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        return await _rideRequests.GetByIdWithDetailsAsync(id, cancellationToken);
     }
 
     private static void SetBaseFareIfMissing(RideRequest request)

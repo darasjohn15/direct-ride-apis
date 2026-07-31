@@ -1,5 +1,6 @@
 using DirectRide.Api.Data;
 using DirectRide.Api.Models;
+using DirectRide.Api.Repositories;
 using DirectRide.Api.Services;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -35,7 +36,7 @@ public class NotificationServiceTests
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        var service = new NotificationService(db);
+        var service = new NotificationService(new NotificationRepository(db));
 
         var notification = await service.CreateNotificationAsync(
             user.Id,

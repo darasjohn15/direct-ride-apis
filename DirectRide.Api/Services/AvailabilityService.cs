@@ -1,6 +1,6 @@
-using DirectRide.Api.Data;
 using DirectRide.Api.DTOs.AvailabilitySlots;
 using DirectRide.Api.Models;
+using DirectRide.Api.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace DirectRide.Api.Services;
@@ -8,20 +8,20 @@ namespace DirectRide.Api.Services;
 public class AvailabilityService
 {
     private static readonly TimeSpan SlotDuration = TimeSpan.FromHours(1);
-    private readonly AppDbContext _db;
+    private readonly IAvailabilitySlotRepository _availabilitySlots;
+    private readonly IUserRepository _users;
 
-    public AvailabilityService(AppDbContext db)
+    public AvailabilityService(IAvailabilitySlotRepository availabilitySlots, IUserRepository users)
     {
-        _db = db;
+        _availabilitySlots = availabilitySlots;
+        _users = users;
     }
 
     public async Task<List<AvailabilitySlotResponseDto>> GetAvailabilitySlotsAsync(
         AvailabilitySlotFilterDto filters,
         CancellationToken cancellationToken = default)
     {
-        var query = _db.AvailabilitySlots
-            .Include(a => a.Driver)
-            .AsQueryable();
+        var query = _availabilitySlots.QueryWithDriver();
 
         if (filters.DriverId.HasValue)
         {
@@ -90,7 +90,7 @@ public class AvailabilityService
         CreateAvailabilitySlotDto dto,
         CancellationToken cancellationToken = default)
     {
-        var driver = await _db.Users.FindAsync([dto.DriverId], cancellationToken);
+        var driver = await _users.GetByIdAsync(dto.DriverId, cancellationToken);
 
         if (driver is null)
         {
@@ -109,10 +109,10 @@ public class AvailabilityService
             return AvailabilityServiceResult<List<AvailabilitySlotResponseDto>>.BadRequest(validationError);
         }
 
-        var hasOverlap = await _db.AvailabilitySlots.AnyAsync(existing =>
-            existing.DriverId == dto.DriverId &&
-            existing.StartTime < dto.EndTime &&
-            existing.EndTime > dto.StartTime,
+        var hasOverlap = await _availabilitySlots.HasOverlappingSlotAsync(
+            dto.DriverId,
+            dto.StartTime,
+            dto.EndTime,
             cancellationToken);
 
         if (hasOverlap)
@@ -123,8 +123,8 @@ public class AvailabilityService
 
         var slots = CreateHourlySlots(dto);
 
-        _db.AvailabilitySlots.AddRange(slots);
-        await _db.SaveChangesAsync(cancellationToken);
+        _availabilitySlots.AddRange(slots);
+        await _availabilitySlots.SaveChangesAsync(cancellationToken);
 
         var response = slots
             .OrderBy(slot => slot.StartTime)

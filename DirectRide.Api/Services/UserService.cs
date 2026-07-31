@@ -1,6 +1,6 @@
-using DirectRide.Api.Data;
 using DirectRide.Api.DTOs;
 using DirectRide.Api.Models;
+using DirectRide.Api.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,12 +8,12 @@ namespace DirectRide.Api.Services;
 
 public class UserService
 {
-    private readonly AppDbContext _db;
+    private readonly IUserRepository _users;
     private readonly PasswordHasher<User> _hasher;
 
-    public UserService(AppDbContext db, PasswordHasher<User> hasher)
+    public UserService(IUserRepository users, PasswordHasher<User> hasher)
     {
-        _db = db;
+        _users = users;
         _hasher = hasher;
     }
 
@@ -21,7 +21,7 @@ public class UserService
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var user = await _db.Users
+        var user = await _users.Query()
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
         return user is null
@@ -40,7 +40,7 @@ public class UserService
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var query = _db.Users.AsQueryable();
+        var query = _users.Query();
 
         query = ApplyFilters(query, search, role, status);
 
@@ -82,8 +82,8 @@ public class UserService
 
         user.PasswordHash = _hasher.HashPassword(user, dto.Password);
 
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync(cancellationToken);
+        _users.Add(user);
+        await _users.SaveChangesAsync(cancellationToken);
 
         return UserServiceResult<UserResponseDto>.Created(ToResponseDto(user));
     }
@@ -93,7 +93,7 @@ public class UserService
         UpdateUserDto dto,
         CancellationToken cancellationToken = default)
     {
-        var user = await _db.Users.FindAsync([id], cancellationToken);
+        var user = await _users.GetByIdAsync(id, cancellationToken);
 
         if (user is null)
         {
@@ -107,7 +107,7 @@ public class UserService
         user.Role = (UserRole)dto.Role;
         user.BaseFare = dto.BaseFare;
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _users.SaveChangesAsync(cancellationToken);
 
         return UserServiceResult<UserResponseDto>.Ok(ToResponseDto(user));
     }
@@ -117,7 +117,7 @@ public class UserService
         PatchUserDto dto,
         CancellationToken cancellationToken = default)
     {
-        var user = await _db.Users.FindAsync([id], cancellationToken);
+        var user = await _users.GetByIdAsync(id, cancellationToken);
 
         if (user is null)
         {
@@ -154,7 +154,7 @@ public class UserService
             user.BaseFare = dto.BaseFare.Value;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        await _users.SaveChangesAsync(cancellationToken);
 
         return UserServiceResult<UserResponseDto>.Ok(ToResponseDto(user));
     }
