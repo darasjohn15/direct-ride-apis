@@ -2,248 +2,150 @@
 
 DirectRide is a private ride-booking backend that allows riders to book rides directly with drivers, eliminating middleman fees.
 
-## Tech Stack
-- ASP.NET Core Web API
-- Entity Framework Core
-- PostgreSQL
-- Docker
-- xUnit (integration tests)
+## Project Overview
 
-## Database Configuration
+DirectRide APIs is the backend for DirectRide, a full-stack cloud-native ride booking platform that connects riders directly with drivers without charging marketplace fees.
 
-Local development and Docker can use `ConnectionStrings__DefaultConnection`. In AWS, the API can also build the PostgreSQL connection from individual environment variables:
+This repository exposes a RESTful ASP.NET Core Web API responsible for authentication, user management, driver availability, ride requests, notifications, and business logic. It serves as the central service layer between the frontend application and the PostgreSQL database.
 
-| Setting | Supported variables |
-| --- | --- |
-| Host | `DB_HOST`, `RDS_HOSTNAME`, `PGHOST` |
-| Port | `DB_PORT`, `RDS_PORT`, `PGPORT` |
-| Database | `DB_NAME`, `DB_DATABASE`, `RDS_DB_NAME`, `PGDATABASE` |
-| Username | `DB_USERNAME`, `DB_USER`, `RDS_USERNAME`, `PGUSER` |
-| Password | `DB_PASSWORD`, `RDS_PASSWORD`, `PGPASSWORD` |
-| SSL mode | `DB_SSL_MODE`, `RDS_SSL_MODE`, `PGSSLMODE` |
-
-When any individual database variable is present, those settings take precedence over the default connection string. If no port is supplied, the API uses PostgreSQL port `5432`.
-
-## Features
-- User management (riders, drivers, and admins)
-- Driver availability scheduling
-- Ride request system
-- Booking logic (prevents double-booking)
-- Accept/decline ride requests
-- DTO-based API design
-- Integration test coverage
+The API was designed as a portfolio project to demonstrate modern backend engineering practices, cloud deployment on AWS, secure authentication, scalable architecture, and production-oriented software design.
 
 ## Architecture Diagrams
 
 ### Backend Architecture
 
+High-level view of the API architecture and request flow.
+
 ![DirectRide backend architecture diagram](docs/API-structure-diagram.PNG)
 
-### Data Models
+### Data Model
+
+Core entities and relationships used throughout DirectRide.
 
 ![DirectRide data models diagram](docs/data-models-diagram.png)
 
-## Endpoints
+## Tech Stack
 
-Most endpoints require a bearer token from `POST /auth/login`. Public endpoints are noted below.
+- ASP.NET Core Web API
+- C#
+- Entity Framework Core
+- PostgreSQL
+- JWT
+- AWS ECS Fargate
+- Terraform
+- Docker
+- GitHub Actions
+- xUnit
 
-### Health
+## Why This Tech Stack
 
-| Method | Endpoint | Auth | Description |
-| --- | --- | --- | --- |
-| `GET` | `/health` | Public | Returns API health status for deployment health checks. |
+| Technology            | Why I Chose It                                                                      |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| ASP.NET Core          | High-performance framework with strong dependency injection and enterprise tooling. |
+| Entity Framework Core | Simplifies database access while keeping queries maintainable.                      |
+| PostgreSQL            | Open-source relational database with excellent performance and AWS RDS support.     |
+| Docker                | Consistent deployments across development and production environments.              |
+| Terraform             | Infrastructure as Code for repeatable cloud deployments.                            |
+| AWS ECS               | Container orchestration without Kubernetes complexity.                              |
+| GitHub Actions        | Automated CI/CD deployments using OIDC authentication.                              |
 
-### Auth
+## Engineering Decisions
 
-| Method | Endpoint | Auth | Description |
-| --- | --- | --- | --- |
-| `POST` | `/auth/login` | Public | Authenticate with email and password. Returns a JWT and basic user details. |
+### JWT Authentication
 
-Request body:
+Authentication uses JWT bearer tokens with issuer, audience, lifetime, and signing key validation. This keeps authentication stateless so the API can scale horizontally without server-side session storage.
 
-```json
-{
-  "email": "driver@example.com",
-  "password": "password123"
-}
+### Entity Framework Core
+
+Entity Framework Core powers PostgreSQL access through `AppDbContext`, repositories, and migrations. It keeps database changes maintainable while still allowing query optimization through LINQ, eager loading, and targeted repository methods.
+
+### Layered Architecture
+
+Route mapping stays lightweight by delegating ride request, availability, user, notification, and earnings logic to services and repositories. This separation keeps business rules easier to test and prevents endpoint handlers from becoming tightly coupled to database operations.
+
+### Docker Containers
+
+The API uses a multi-stage Dockerfile and Docker Compose setup so local development and production deployments run from the same containerized application model. The container listens on port `8080`, which aligns cleanly with AWS ECS Fargate deployment patterns.
+
+### PostgreSQL
+
+PostgreSQL was selected because ride scheduling, bookings, users, notifications, and earnings rely on relational data and transactional consistency. The EF Core model defines explicit relationships between riders, drivers, availability slots, ride requests, and notifications.
+
+### Environment-Based Configuration
+
+Database connection settings are read from configuration and environment variables, allowing the same application code to run locally, in Docker, and in AWS without hardcoded infrastructure values.
+
+## Features
+
+### Authentication
+
+- JWT login
+- Secure password hashing
+- Protected endpoints
+
+### User Management
+
+- Rider accounts
+- Driver accounts
+- Admin users
+- Profile management
+
+### Ride Scheduling
+
+- Driver availability
+- Booking logic
+- Prevent double-booking
+
+### Ride Management
+
+- Create rides
+- Accept/decline
+- Complete rides
+- Ride status updates
+
+### Notifications
+
+- Ride lifecycle notifications
+- Driver updates
+- Rider updates
+
+### Testing
+
+- Integration tests
+- Health endpoint
+
+## Project Structure
+
+```text
+.
+├── .github/
+│   └── workflows/              # GitHub Actions CI/CD workflow definitions
+├── DirectRide.Api/
+│   ├── Controllers/            # Minimal API route groups and endpoint mappings
+│   ├── DTOs/                   # Request and response contracts grouped by feature
+│   ├── Data/                   # EF Core DbContext, design-time factory, and connection string helpers
+│   ├── Enums/                  # Shared domain enums such as user roles and ride statuses
+│   ├── Migrations/             # EF Core database migrations
+│   ├── Models/                 # Core domain entities
+│   ├── Properties/             # ASP.NET Core launch settings
+│   ├── Repositories/           # Data access abstractions and EF Core repository implementations
+│   ├── Scripts/                # Database seed and utility scripts
+│   ├── Services/               # Business logic for rides, users, notifications, earnings, and JWTs
+│   ├── Dockerfile              # Multi-stage container build for the API
+│   └── Program.cs              # Application startup, dependency injection, middleware, and route registration
+├── DirectRide.Api.Tests/       # xUnit integration and service tests
+├── docs/                       # Architecture diagrams and supporting documentation
+├── docker-compose.yml          # Local API and PostgreSQL development environment
+└── README.md                   # Project documentation
 ```
 
-### Users
+## API Documentation
 
-| Method | Endpoint | Auth | Description |
-| --- | --- | --- | --- |
-| `GET` | `/users/test` | Public | Returns a sample driver user. |
-| `POST` | `/users` | Public | Create a rider or driver account. |
-| `GET` | `/users/me` | Required | Get the currently authenticated user. |
-| `GET` | `/users` | Required | Get paginated users. Supports search, role, and status filters. |
-| `GET` | `/users/{id}` | Required | Get a user by ID. |
-| `PUT` | `/users/{id}` | Required | Replace a user's profile fields. |
-| `PATCH` | `/users/{id}` | Required | Update one or more user profile fields. |
+Detailed endpoint documentation is available in [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md).
 
-Create user body:
+## Roadmap
 
-```json
-{
-  "firstName": "Sample",
-  "lastName": "Driver",
-  "email": "sample.driver@directride.com",
-  "phoneNumber": "555-555-5555",
-  "role": 1,
-  "password": "password123"
-}
-```
+Upcoming features planned for future versions of DirectRide APIs include:
 
-Update user body:
-
-```json
-{
-  "firstName": "Sample",
-  "lastName": "Driver",
-  "email": "sample.driver@directride.com",
-  "phoneNumber": "555-555-5555",
-  "role": 1,
-  "baseFare": 25.00
-}
-```
-
-Patch user body supports any subset of `firstName`, `lastName`, `email`, `phoneNumber`, `role`, and `baseFare`.
-
-`GET /users` query filters:
-
-| Query parameter | Type | Notes |
-| --- | --- | --- |
-| `page` | `int` | Defaults to `1`. Values below `1` are treated as `1`. |
-| `pageSize` | `int` | Defaults to `20`. Clamped between `1` and `100`. |
-| `search` | `string` | Matches full name, email, or phone number. |
-| `role` | `UserRole` or `int` | Accepts role names, numeric role values, or `All Roles`. |
-| `status` | `string` | `All Statuses` returns all users. `Deactivated` currently returns no users. |
-
-`GET /users` response:
-
-```json
-{
-  "items": [
-    {
-      "id": "00000000-0000-0000-0000-000000000000",
-      "firstName": "Sample",
-      "lastName": "Driver",
-      "email": "sample.driver@directride.com",
-      "phoneNumber": "555-555-5555",
-      "role": "Driver",
-      "baseFare": 25.00
-    }
-  ],
-  "page": 1,
-  "pageSize": 20,
-  "totalItems": 1,
-  "totalPages": 1,
-  "hasPreviousPage": false,
-  "hasNextPage": false
-}
-```
-
-User roles:
-
-| Value | Role |
-| --- | --- |
-| `0` | Rider |
-| `1` | Driver |
-| `2` | Admin |
-
-### Availability
-
-| Method | Endpoint | Auth | Description |
-| --- | --- | --- | --- |
-| `GET` | `/availability` | Required | Get driver availability slots. Defaults to unbooked slots when `isBooked` is omitted. |
-| `POST` | `/availability` | Required | Create a driver availability slot. |
-
-`GET /availability` query filters:
-
-| Query parameter | Type |
-| --- | --- |
-| `driverId` | `Guid` |
-| `driverName` | `string` |
-| `startTimeFrom` | `DateTime` |
-| `startTimeTo` | `DateTime` |
-| `endTimeFrom` | `DateTime` |
-| `endTimeTo` | `DateTime` |
-| `isBooked` | `bool` |
-| `createdAtFrom` | `DateTime` |
-| `createdAtTo` | `DateTime` |
-
-Create availability body:
-
-```json
-{
-  "driverId": "00000000-0000-0000-0000-000000000000",
-  "startTime": "2026-05-11T14:00:00Z",
-  "endTime": "2026-05-11T16:00:00Z"
-}
-```
-
-### Ride Requests
-
-| Method | Endpoint | Auth | Description |
-| --- | --- | --- | --- |
-| `GET` | `/ride-requests` | Required | Get ride requests with rider, driver, availability, fare, earnings, status, and completion details. |
-| `POST` | `/ride-requests` | Required | Create a ride request and mark the availability slot as booked. Fare and driver earnings are set from the driver's base fare. |
-| `PUT` | `/ride-requests/{id}` | Required | Update all editable ride request fields. Moving a ride to a different availability slot frees the old slot and books the new one. |
-| `PATCH` | `/ride-requests/{id}/status?status={status}` | Required | Update a ride request status. Declined requests free the availability slot; completed requests set `completedAt`. |
-
-`GET /ride-requests` query filters:
-
-| Query parameter | Type |
-| --- | --- |
-| `riderId` | `Guid` |
-| `riderName` | `string` |
-| `driverId` | `Guid` |
-| `driverName` | `string` |
-| `availabilitySlotId` | `Guid` |
-| `pickupLocation` | `string` |
-| `dropoffLocation` | `string` |
-| `status` | `RideRequestStatus` |
-| `slotStartTimeFrom` | `DateTime` |
-| `slotStartTimeTo` | `DateTime` |
-| `slotEndTimeFrom` | `DateTime` |
-| `slotEndTimeTo` | `DateTime` |
-| `createdAtFrom` | `DateTime` |
-| `createdAtTo` | `DateTime` |
-
-Create ride request body:
-
-```json
-{
-  "riderId": "00000000-0000-0000-0000-000000000000",
-  "driverId": "00000000-0000-0000-0000-000000000000",
-  "availabilitySlotId": "00000000-0000-0000-0000-000000000000",
-  "pickupLocation": "123 Main St",
-  "dropoffLocation": "456 Oak Ave"
-}
-```
-
-Update ride request body:
-
-```json
-{
-  "riderId": "00000000-0000-0000-0000-000000000000",
-  "driverId": "00000000-0000-0000-0000-000000000000",
-  "availabilitySlotId": "00000000-0000-0000-0000-000000000000",
-  "pickupLocation": "123 Main St",
-  "dropoffLocation": "456 Oak Ave",
-  "fareAmount": 84.25,
-  "driverEarningsAmount": 72.50,
-  "status": 3,
-  "createdAt": "2026-07-19T12:30:00Z",
-  "completedAt": "2026-07-20T15:05:00Z"
-}
-```
-
-Ride request statuses:
-
-| Value | Status |
-| --- | --- |
-| `0` | Pending |
-| `1` | Accepted |
-| `2` | Declined |
-| `3` | Completed |
-| `4` | Cancelled |
+- OAuth login with Amazon Cognito
+- Payment integration
