@@ -16,7 +16,7 @@ The API was designed as a portfolio project to demonstrate modern backend engine
 
 High-level view of the API architecture and request flow.
 
-![DirectRide backend architecture diagram](docs/API-structure-diagram.PNG)
+![DirectRide backend architecture diagram](docs/DirectRide_Backend_Diagram.png)
 
 ### Data Model
 
@@ -142,6 +142,10 @@ Database connection settings are read from configuration and environment variabl
 ## API Documentation
 
 Detailed endpoint documentation is available in [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md).
+
+## Getting Started
+
+To set up the API locally, follow the [local development environment setup guide](docs/local_dev_env_setup.md).
 
 ## Roadmap
 
