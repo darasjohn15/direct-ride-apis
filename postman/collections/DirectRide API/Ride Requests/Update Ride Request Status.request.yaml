@@ -1,0 +1,7 @@
+$kind: http-request
+description: Accepts a RideRequestStatus name or numeric value.
+url: "{{baseUrl}}/ride-requests/{{rideRequestId}}/status?status=Accepted"
+method: PATCH
+queryParams:
+  status: Accepted
+order: 8000

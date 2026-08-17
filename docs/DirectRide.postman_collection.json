@@ -1,0 +1,197 @@
+{
+  "info": {
+    "_postman_id": "4a57ce2c-ef3d-4eec-9ec1-c30b541eb76a",
+    "name": "DirectRide API",
+    "description": "Complete collection for every endpoint mapped by the DirectRide API. Run Register or Login first to populate authToken. Resource-creating requests capture IDs for later requests. Role values: Rider=0, Driver=1, Admin=2. Ride statuses: Pending=0, Accepted=1, Declined=2, Completed=3, Cancelled=4, InProgress=5.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{authToken}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response status is successful', function () {",
+          "  pm.expect(pm.response.code).to.be.within(200, 299);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5049", "type": "string" },
+    { "key": "authToken", "value": "", "type": "string" },
+    { "key": "email", "value": "postman.admin@directride.test", "type": "string" },
+    { "key": "password", "value": "PostmanTest123!", "type": "string" },
+    { "key": "userId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
+    { "key": "driverId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
+    { "key": "riderId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
+    { "key": "availabilitySlotId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
+    { "key": "rideRequestId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
+    { "key": "notificationId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
+    { "key": "date", "value": "2026-08-07", "type": "string" },
+    { "key": "weekStart", "value": "2026-08-03", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": "{{baseUrl}}/health", "description": "Public deployment health check." },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const body = pm.response.json();", "pm.collectionVariables.set('authToken', body.token);", "pm.collectionVariables.set('userId', body.user.id);"] } }],
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Admin\",\n  \"email\": \"{{email}}\",\n  \"phoneNumber\": \"555-010-0001\",\n  \"password\": \"{{password}}\",\n  \"role\": 2\n}" },
+            "url": "{{baseUrl}}/auth/register",
+            "description": "Registers an admin and stores its JWT and user ID. Change email before rerunning if the account already exists."
+          }, "response": []
+        },
+        {
+          "name": "Login",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const body = pm.response.json();", "pm.collectionVariables.set('authToken', body.token);", "pm.collectionVariables.set('userId', body.user.id);"] } }],
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}" },
+            "url": "{{baseUrl}}/auth/login"
+          }, "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        { "name": "Get Test User", "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": "{{baseUrl}}/users/test" }, "response": [] },
+        { "name": "Get Current User", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/users/me" }, "response": [] },
+        {
+          "name": "List Users",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/users?page=1&pageSize=20&search=&role=All%20Roles&status=All%20Statuses", "description": "Optional filters: page, pageSize, search, role, and status." }, "response": []
+        },
+        { "name": "Get User by ID", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/users/{{userId}}" }, "response": [] },
+        {
+          "name": "Create Driver",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('driverId', pm.response.json().id);"] } }],
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Driver\",\n  \"email\": \"postman.driver{{$timestamp}}@directride.test\",\n  \"phoneNumber\": \"555-010-0002\",\n  \"role\": 1,\n  \"password\": \"{{password}}\"\n}" },
+            "url": "{{baseUrl}}/users"
+          }, "response": []
+        },
+        {
+          "name": "Create Rider",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('riderId', pm.response.json().id);"] } }],
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Rider\",\n  \"email\": \"postman.rider{{$timestamp}}@directride.test\",\n  \"phoneNumber\": \"555-010-0003\",\n  \"role\": 0,\n  \"password\": \"{{password}}\"\n}" },
+            "url": "{{baseUrl}}/users"
+          }, "response": []
+        },
+        {
+          "name": "Replace User",
+          "request": {
+            "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Driver Updated\",\n  \"email\": \"postman.driver.updated@directride.test\",\n  \"phoneNumber\": \"555-010-0012\",\n  \"role\": 1,\n  \"baseFare\": 25.00\n}" },
+            "url": "{{baseUrl}}/users/{{driverId}}"
+          }, "response": []
+        },
+        {
+          "name": "Patch User",
+          "request": {
+            "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"baseFare\": 30.00\n}" },
+            "url": "{{baseUrl}}/users/{{driverId}}"
+          }, "response": []
+        }
+      ]
+    },
+    {
+      "name": "Availability",
+      "item": [
+        {
+          "name": "List Availability Slots",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/availability?driverId={{driverId}}&isBooked=false", "description": "Other optional filters: driverName, startTimeFrom/To, endTimeFrom/To, createdAtFrom/To." }, "response": []
+        },
+        {
+          "name": "Create Availability Slot",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const body = pm.response.json();", "const slot = Array.isArray(body) ? body[0] : body;", "pm.collectionVariables.set('availabilitySlotId', slot.id);"] } }],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"driverId\": \"{{driverId}}\",\n  \"startTime\": \"2030-01-15T14:00:00Z\",\n  \"endTime\": \"2030-01-15T16:00:00Z\"\n}" },
+            "url": "{{baseUrl}}/availability"
+          }, "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ride Requests",
+      "item": [
+        {
+          "name": "List Ride Requests",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/ride-requests?page=1&pageSize=20&riderId={{riderId}}&driverId={{driverId}}", "description": "Other optional filters: names, availabilitySlotId, locations, status, upcomingOnly, slot times, and created-at times." }, "response": []
+        },
+        { "name": "Get Ride Request by ID", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/ride-requests/{{rideRequestId}}" }, "response": [] },
+        {
+          "name": "Create Ride Request",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('rideRequestId', pm.response.json().id);"] } }],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"riderId\": \"{{riderId}}\",\n  \"availabilitySlotId\": \"{{availabilitySlotId}}\",\n  \"scheduledAt\": \"2030-01-15T14:00:00Z\",\n  \"pickupLocation\": \"123 Main St\",\n  \"dropoffLocation\": \"456 Oak Ave\"\n}" },
+            "url": "{{baseUrl}}/ride-requests"
+          }, "response": []
+        },
+        {
+          "name": "Replace Ride Request (Admin)",
+          "request": {
+            "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"riderId\": \"{{riderId}}\",\n  \"driverId\": \"{{driverId}}\",\n  \"availabilitySlotId\": \"{{availabilitySlotId}}\",\n  \"pickupLocation\": \"123 Main St Updated\",\n  \"dropoffLocation\": \"456 Oak Ave Updated\",\n  \"fareAmount\": 30.00,\n  \"driverEarningsAmount\": 30.00,\n  \"status\": 0,\n  \"scheduledAt\": \"2030-01-15T14:00:00Z\",\n  \"createdAt\": \"2030-01-01T12:00:00Z\",\n  \"startedAt\": null,\n  \"completedAt\": null,\n  \"cancelledAt\": null,\n  \"cancelledByUserId\": null,\n  \"cancellationReason\": null\n}" },
+            "url": "{{baseUrl}}/ride-requests/{{rideRequestId}}",
+            "description": "Requires a JWT whose role claim is Admin."
+          }, "response": []
+        },
+        { "name": "Start Ride Request", "request": { "method": "PATCH", "header": [], "url": "{{baseUrl}}/ride-requests/{{rideRequestId}}/start" }, "response": [] },
+        { "name": "Complete Ride Request", "request": { "method": "PATCH", "header": [], "url": "{{baseUrl}}/ride-requests/{{rideRequestId}}/complete" }, "response": [] },
+        { "name": "Cancel Ride Request", "request": { "method": "PATCH", "header": [], "url": "{{baseUrl}}/ride-requests/{{rideRequestId}}/cancel?cancellationReason=Cancelled%20from%20Postman" }, "response": [] },
+        { "name": "Update Ride Request Status", "request": { "method": "PATCH", "header": [], "url": "{{baseUrl}}/ride-requests/{{rideRequestId}}/status?status=Accepted", "description": "Accepts a RideRequestStatus name or numeric value." }, "response": [] }
+      ]
+    },
+    {
+      "name": "Earnings",
+      "item": [
+        { "name": "Get Daily Earnings", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/earnings/drivers/{{driverId}}/daily?date={{date}}" }, "response": [] },
+        { "name": "Get Weekly Earnings", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/earnings/drivers/{{driverId}}/weekly?weekStart={{weekStart}}" }, "response": [] },
+        { "name": "Get Daily Earnings (API Alias)", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/earnings/drivers/{{driverId}}/daily?date={{date}}" }, "response": [] },
+        { "name": "Get Weekly Earnings (API Alias)", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/earnings/drivers/{{driverId}}/weekly?weekStart={{weekStart}}" }, "response": [] }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const body = pm.response.json();", "if (body.items && body.items.length) pm.collectionVariables.set('notificationId', body.items[0].id);"] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/notifications?page=1&page_size=20", "description": "Stores the first returned notification ID when notifications exist. The API also accepts pageSize." }, "response": []
+        },
+        { "name": "Get Unread Notification Count", "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/notifications/unread-count" }, "response": [] },
+        { "name": "Mark Notification as Read", "request": { "method": "PATCH", "header": [], "url": "{{baseUrl}}/notifications/{{notificationId}}/read" }, "response": [] },
+        { "name": "Mark All Notifications as Read", "request": { "method": "PATCH", "header": [], "url": "{{baseUrl}}/notifications/read-all" }, "response": [] }
+      ]
+    }
+  ]
+}

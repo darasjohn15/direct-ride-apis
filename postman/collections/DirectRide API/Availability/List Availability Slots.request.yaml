@@ -1,0 +1,8 @@
+$kind: http-request
+description: "Other optional filters: driverName, startTimeFrom/To, endTimeFrom/To, createdAtFrom/To."
+url: "{{baseUrl}}/availability?driverId={{driverId}}&isBooked=false"
+method: GET
+queryParams:
+  driverId: "{{driverId}}"
+  isBooked: "false"
+order: 1000

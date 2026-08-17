@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}/availability"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "driverId": "{{driverId}}",
+      "startTime": "2030-01-15T14:00:00Z",
+      "endTime": "2030-01-15T16:00:00Z"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const body = pm.response.json();
+      const slot = Array.isArray(body) ? body[0] : body;
+      pm.collectionVariables.set('availabilitySlotId', slot.id);
+    language: text/javascript
+order: 2000

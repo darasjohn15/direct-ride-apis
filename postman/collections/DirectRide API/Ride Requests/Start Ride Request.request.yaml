@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/ride-requests/{{rideRequestId}}/start"
+method: PATCH
+order: 5000

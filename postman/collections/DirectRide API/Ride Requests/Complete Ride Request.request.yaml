@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/ride-requests/{{rideRequestId}}/complete"
+method: PATCH
+order: 6000

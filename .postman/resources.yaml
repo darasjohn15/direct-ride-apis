@@ -1,0 +1,11 @@
+# Use this workspace to collaborate
+workspace:
+  id: 86f5e30d-d3a2-42be-8a9b-63553b2d7dbe
+
+localResources:
+  collections:
+    - ../docs/DirectRide.postman_collection.json
+
+cloudResources:
+  collections:
+    ../postman/collections/DirectRide API: 25fcfe5c-d2dc-4617-b3b8-4f1c50a8d3ce

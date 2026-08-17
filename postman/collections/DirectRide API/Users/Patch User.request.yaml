@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/users/{{driverId}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "baseFare": 30.00
+    }
+order: 8000

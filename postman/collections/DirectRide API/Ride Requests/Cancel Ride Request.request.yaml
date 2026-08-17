@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/ride-requests/{{rideRequestId}}/cancel?cancellationReason=Cancelled%20from%20Postman"
+method: PATCH
+queryParams:
+  cancellationReason: Cancelled%20from%20Postman
+order: 7000

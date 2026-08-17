@@ -1,0 +1,27 @@
+$kind: http-request
+description: Requires a JWT whose role claim is Admin.
+url: "{{baseUrl}}/ride-requests/{{rideRequestId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "riderId": "{{riderId}}",
+      "driverId": "{{driverId}}",
+      "availabilitySlotId": "{{availabilitySlotId}}",
+      "pickupLocation": "123 Main St Updated",
+      "dropoffLocation": "456 Oak Ave Updated",
+      "fareAmount": 30.00,
+      "driverEarningsAmount": 30.00,
+      "status": 0,
+      "scheduledAt": "2030-01-15T14:00:00Z",
+      "createdAt": "2030-01-01T12:00:00Z",
+      "startedAt": null,
+      "completedAt": null,
+      "cancelledAt": null,
+      "cancelledByUserId": null,
+      "cancellationReason": null
+    }
+order: 4000

@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/ride-requests/{{rideRequestId}}"
+method: GET
+order: 2000

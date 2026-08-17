@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/earnings/drivers/{{driverId}}/weekly?weekStart={{weekStart}}"
+method: GET
+queryParams:
+  weekStart: "{{weekStart}}"
+order: 2000

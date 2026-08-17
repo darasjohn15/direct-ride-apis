@@ -1,0 +1,28 @@
+$kind: collection
+description: "Complete collection for every endpoint mapped by the DirectRide API. Run Register or Login first to populate authToken. Resource-creating requests capture IDs for later requests. Role values: Rider=0, Driver=1, Admin=2. Ride statuses: Pending=0, Accepted=1, Declined=2, Completed=3, Cancelled=4, InProgress=5."
+variables:
+  baseUrl: http://localhost:5049
+  authToken: ""
+  email: postman.admin@directride.test
+  password: PostmanTest123!
+  userId: 00000000-0000-0000-0000-000000000000
+  driverId: 00000000-0000-0000-0000-000000000000
+  riderId: 00000000-0000-0000-0000-000000000000
+  availabilitySlotId: 00000000-0000-0000-0000-000000000000
+  rideRequestId: 00000000-0000-0000-0000-000000000000
+  notificationId: 00000000-0000-0000-0000-000000000000
+  date: 2026-08-07
+  weekStart: 2026-08-03
+scripts:
+  - type: http:afterResponse
+    code: |-
+      pm.test('Response status is successful', function () {
+        pm.expect(pm.response.code).to.be.within(200, 299);
+      });
+    language: text/javascript
+auth:
+  - id: f70aaaf5-46b4-4944-97a3-c610a2ffbecc
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{authToken}}"

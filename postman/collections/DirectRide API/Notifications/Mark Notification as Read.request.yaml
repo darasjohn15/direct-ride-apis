@@ -1,0 +1,4 @@
+$kind: http-request
+url: "{{baseUrl}}/notifications/{{notificationId}}/read"
+method: PATCH
+order: 3000

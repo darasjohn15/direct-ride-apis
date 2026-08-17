@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/users"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "firstName": "Postman",
+      "lastName": "Driver",
+      "email": "postman.driver{{$timestamp}}@directride.test",
+      "phoneNumber": "555-010-0002",
+      "role": 1,
+      "password": "{{password}}"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: pm.collectionVariables.set('driverId', pm.response.json().id);
+    language: text/javascript
+order: 5000

@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/users/test"
+method: GET
+auth:
+  type: noauth
+order: 1000

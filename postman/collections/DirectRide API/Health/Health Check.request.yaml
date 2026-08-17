@@ -1,0 +1,7 @@
+$kind: http-request
+description: Public deployment health check.
+url: "{{baseUrl}}/health"
+method: GET
+auth:
+  type: noauth
+order: 1000

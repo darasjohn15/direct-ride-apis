@@ -1,0 +1,14 @@
+$kind: http-request
+description: Stores the first returned notification ID when notifications exist. The API also accepts pageSize.
+url: "{{baseUrl}}/notifications?page=1&page_size=20"
+method: GET
+queryParams:
+  page: "1"
+  page_size: "20"
+scripts:
+  - type: afterResponse
+    code: |-
+      const body = pm.response.json();
+      if (body.items && body.items.length) pm.collectionVariables.set('notificationId', body.items[0].id);
+    language: text/javascript
+order: 1000

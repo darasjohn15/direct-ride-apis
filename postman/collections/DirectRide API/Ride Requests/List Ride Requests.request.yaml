@@ -1,0 +1,10 @@
+$kind: http-request
+description: "Other optional filters: names, availabilitySlotId, locations, status, upcomingOnly, slot times, and created-at times."
+url: "{{baseUrl}}/ride-requests?page=1&pageSize=20&riderId={{riderId}}&driverId={{driverId}}"
+method: GET
+queryParams:
+  page: "1"
+  pageSize: "20"
+  riderId: "{{riderId}}"
+  driverId: "{{driverId}}"
+order: 1000

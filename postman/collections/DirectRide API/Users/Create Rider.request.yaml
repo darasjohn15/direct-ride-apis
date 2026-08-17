@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/users"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "firstName": "Postman",
+      "lastName": "Rider",
+      "email": "postman.rider{{$timestamp}}@directride.test",
+      "phoneNumber": "555-010-0003",
+      "role": 0,
+      "password": "{{password}}"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: pm.collectionVariables.set('riderId', pm.response.json().id);
+    language: text/javascript
+order: 6000

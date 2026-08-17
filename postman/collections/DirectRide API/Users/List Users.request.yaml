@@ -1,0 +1,11 @@
+$kind: http-request
+description: "Optional filters: page, pageSize, search, role, and status."
+url: "{{baseUrl}}/users?page=1&pageSize=20&search=&role=All%20Roles&status=All%20Statuses"
+method: GET
+queryParams:
+  page: "1"
+  pageSize: "20"
+  search: ""
+  role: All%20Roles
+  status: All%20Statuses
+order: 3000

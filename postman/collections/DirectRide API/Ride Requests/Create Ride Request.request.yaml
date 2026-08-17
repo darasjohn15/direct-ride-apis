@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/ride-requests"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "riderId": "{{riderId}}",
+      "availabilitySlotId": "{{availabilitySlotId}}",
+      "scheduledAt": "2030-01-15T14:00:00Z",
+      "pickupLocation": "123 Main St",
+      "dropoffLocation": "456 Oak Ave"
+    }
+scripts:
+  - type: afterResponse
+    code: pm.collectionVariables.set('rideRequestId', pm.response.json().id);
+    language: text/javascript
+order: 3000

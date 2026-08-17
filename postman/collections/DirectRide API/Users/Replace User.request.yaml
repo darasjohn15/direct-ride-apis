@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/users/{{driverId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "firstName": "Postman",
+      "lastName": "Driver Updated",
+      "email": "postman.driver.updated@directride.test",
+      "phoneNumber": "555-010-0012",
+      "role": 1,
+      "baseFare": 25.00
+    }
+order: 7000

@@ -1,0 +1,27 @@
+$kind: http-request
+description: Registers an admin and stores its JWT and user ID. Change email before rerunning if the account already exists.
+url: "{{baseUrl}}/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "firstName": "Postman",
+      "lastName": "Admin",
+      "email": "{{email}}",
+      "phoneNumber": "555-010-0001",
+      "password": "{{password}}",
+      "role": 2
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      const body = pm.response.json();
+      pm.collectionVariables.set('authToken', body.token);
+      pm.collectionVariables.set('userId', body.user.id);
+    language: text/javascript
+order: 1000
