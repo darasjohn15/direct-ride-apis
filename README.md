@@ -22,7 +22,7 @@ High-level view of the API architecture and request flow.
 
 Core entities and relationships used throughout DirectRide.
 
-![DirectRide data models diagram](docs/data-models-diagram.png)
+![DirectRide data models diagram](docs/DirectRide_Data_Models_Diagram.png)
 
 ## Tech Stack
 
@@ -31,6 +31,7 @@ Core entities and relationships used throughout DirectRide.
 - Entity Framework Core
 - PostgreSQL
 - JWT
+- Amazon S3
 - AWS ECS Fargate
 - Terraform
 - Docker
@@ -47,6 +48,7 @@ Core entities and relationships used throughout DirectRide.
 | Docker                | Consistent deployments across development and production environments.              |
 | Terraform             | Infrastructure as Code for repeatable cloud deployments.                            |
 | AWS ECS               | Container orchestration without Kubernetes complexity.                              |
+| Amazon S3             | Durable object storage for user profile photos without storing image data in PostgreSQL. |
 | GitHub Actions        | Automated CI/CD deployments using OIDC authentication.                              |
 
 ## Engineering Decisions
@@ -73,7 +75,7 @@ PostgreSQL was selected because ride scheduling, bookings, users, notifications,
 
 ### Environment-Based Configuration
 
-Database connection settings are read from configuration and environment variables, allowing the same application code to run locally, in Docker, and in AWS without hardcoded infrastructure values.
+Database, JWT, CORS, and S3 settings are read from configuration and environment variables, allowing the same application code to run locally, in Docker, and in AWS.
 
 ## Features
 
@@ -89,6 +91,7 @@ Database connection settings are read from configuration and environment variabl
 - Driver accounts
 - Admin users
 - Profile management
+- JPEG, PNG, and WebP profile-photo upload and removal
 
 ### Ride Scheduling
 

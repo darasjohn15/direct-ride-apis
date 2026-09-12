@@ -3,11 +3,14 @@ using System.Security.Claims;
 using DirectRide.Api.DTOs;
 using DirectRide.Api.Models;
 using DirectRide.Api.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace DirectRide.Api.Controllers;
 
 public static class UserController
 {
+    private const long MaxProfilePhotoRequestSize = UserService.MaxProfilePhotoSize + (1024 * 1024);
+
     public static IEndpointRouteBuilder MapUserController(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/users");
@@ -108,7 +111,74 @@ public static class UserController
         })
         .RequireAuthorization();
 
+        group.MapPut("/{id:guid}/profile-photo", async (
+            ClaimsPrincipal claimsPrincipal,
+            UserService userService,
+            Guid id,
+            IFormFile file,
+            CancellationToken cancellationToken) =>
+        {
+            var authorizationResult = AuthorizeProfilePhotoChange(claimsPrincipal, id);
+            if (authorizationResult is not null)
+            {
+                return authorizationResult;
+            }
+
+            using var memoryStream = new MemoryStream();
+            await file.CopyToAsync(memoryStream, cancellationToken);
+
+            var result = await userService.UploadProfilePhotoAsync(
+                id,
+                memoryStream.ToArray(),
+                file.ContentType,
+                cancellationToken);
+
+            return ToHttpResult(result);
+        })
+        .WithMetadata(new RequestSizeLimitAttribute(MaxProfilePhotoRequestSize))
+        .DisableAntiforgery()
+        .RequireAuthorization();
+
+        group.MapDelete("/{id:guid}/profile-photo", async (
+            ClaimsPrincipal claimsPrincipal,
+            UserService userService,
+            Guid id,
+            CancellationToken cancellationToken) =>
+        {
+            var authorizationResult = AuthorizeProfilePhotoChange(claimsPrincipal, id);
+            if (authorizationResult is not null)
+            {
+                return authorizationResult;
+            }
+
+            var result = await userService.DeleteProfilePhotoAsync(
+                id,
+                cancellationToken);
+
+            return ToHttpResult(result);
+        })
+        .RequireAuthorization();
+
         return app;
+    }
+
+    private static IResult? AuthorizeProfilePhotoChange(
+        ClaimsPrincipal claimsPrincipal,
+        Guid userId)
+    {
+        if (claimsPrincipal.IsInRole(UserRole.Admin.ToString()))
+        {
+            return null;
+        }
+
+        if (!TryGetUserId(claimsPrincipal, out var authenticatedUserId))
+        {
+            return Results.Unauthorized();
+        }
+
+        return authenticatedUserId == userId
+            ? null
+            : Results.Forbid();
     }
 
     private static IResult ToHttpResult<T>(UserServiceResult<T> result)
@@ -116,6 +186,7 @@ public static class UserController
         return result.Status switch
         {
             UserServiceResultStatus.Ok => Results.Ok(result.Value),
+            UserServiceResultStatus.BadRequest => Results.BadRequest(result.Error),
             UserServiceResultStatus.NotFound => Results.NotFound(result.Error),
             UserServiceResultStatus.Created => Results.Created(string.Empty, result.Value),
             _ => Results.Problem("Unexpected user service result.")

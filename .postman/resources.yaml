@@ -6,6 +6,8 @@ localResources:
   collections:
     - ../docs/DirectRide.postman_collection.json
 
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
 cloudResources:
   collections:
-    ../postman/collections/DirectRide API: 25fcfe5c-d2dc-4617-b3b8-4f1c50a8d3ce
+    ../postman/collections/DirectRide API: 4a009d3e-7e73-4775-a905-ab0ecedab523

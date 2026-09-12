@@ -1,4 +1,5 @@
 $kind: collection
+name: DirectRide API
 description: "Complete collection for every endpoint mapped by the DirectRide API. Run Register or Login first to populate authToken. Resource-creating requests capture IDs for later requests. Role values: Rider=0, Driver=1, Admin=2. Ride statuses: Pending=0, Accepted=1, Declined=2, Completed=3, Cancelled=4, InProgress=5."
 variables:
   baseUrl: http://localhost:5049
@@ -11,6 +12,7 @@ variables:
   availabilitySlotId: 00000000-0000-0000-0000-000000000000
   rideRequestId: 00000000-0000-0000-0000-000000000000
   notificationId: 00000000-0000-0000-0000-000000000000
+  profilePhotoPath: ""
   date: 2026-08-07
   weekStart: 2026-08-03
 scripts:
@@ -21,7 +23,7 @@ scripts:
       });
     language: text/javascript
 auth:
-  - id: f70aaaf5-46b4-4944-97a3-c610a2ffbecc
+  - id: c7cfaa93-3e27-463c-8fd2-d81c84bb6176
     type: bearer
     name: bearer auth
     credentials:

@@ -16,4 +16,5 @@ public class UserResponseDto
 
     public DateTime CreatedAt { get; set; }
     public decimal BaseFare { get; set; } = 0.00m;
+    public string? ProfilePhotoUrl { get; set; } = null;
 }

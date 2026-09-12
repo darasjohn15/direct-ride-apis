@@ -1,0 +1,5 @@
+$kind: http-request
+description: Deletes the user's profile photo. Non-admin users can only delete their own photo.
+url: "{{baseUrl}}/users/{{userId}}/profile-photo"
+method: DELETE
+order: 10000

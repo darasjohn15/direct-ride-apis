@@ -8,13 +8,20 @@ namespace DirectRide.Api.Services;
 
 public class UserService
 {
+    public const long MaxProfilePhotoSize = 5 * 1024 * 1024;
+
     private readonly IUserRepository _users;
     private readonly PasswordHasher<User> _hasher;
+    private readonly IFileStorageService _fileStorageService;
 
-    public UserService(IUserRepository users, PasswordHasher<User> hasher)
+    public UserService(
+        IUserRepository users,
+        PasswordHasher<User> hasher,
+        IFileStorageService fileStorageService)
     {
         _users = users;
         _hasher = hasher;
+        _fileStorageService = fileStorageService;
     }
 
     public async Task<UserServiceResult<UserResponseDto>> GetUserAsync(
@@ -159,6 +166,99 @@ public class UserService
         return UserServiceResult<UserResponseDto>.Ok(ToResponseDto(user));
     }
 
+    public async Task<UserServiceResult<UserResponseDto>> UploadProfilePhotoAsync(
+        Guid userId,
+        byte[] fileContent,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        if (fileContent.Length == 0)
+        {
+            return UserServiceResult<UserResponseDto>
+                .BadRequest("A profile photo is required.");
+        }
+
+        if (fileContent.LongLength > MaxProfilePhotoSize)
+        {
+            return UserServiceResult<UserResponseDto>
+                .BadRequest("Profile photos cannot exceed 5 MB.");
+        }
+
+        if (!IsSupportedProfilePhoto(fileContent, contentType))
+        {
+            return UserServiceResult<UserResponseDto>
+                .BadRequest("Only JPEG, PNG, and WebP images are supported.");
+        }
+
+        var user = await _users.GetByIdAsync(userId, cancellationToken);
+
+        if (user is null)
+        {
+            return UserServiceResult<UserResponseDto>
+                .NotFound("User not found.");
+        }
+
+        var photoKey = await _fileStorageService.UploadProfilePhotoAsync(
+            userId,
+            fileContent,
+            contentType,
+            cancellationToken);
+
+        user.ProfilePhotoKey = photoKey;
+
+        await _users.SaveChangesAsync(cancellationToken);
+
+        return UserServiceResult<UserResponseDto>
+            .Ok(ToResponseDto(user));
+    }
+
+    private static bool IsSupportedProfilePhoto(
+        ReadOnlySpan<byte> content,
+        string contentType)
+    {
+        return contentType.ToLowerInvariant() switch
+        {
+            "image/jpeg" => content.Length >= 3
+                && content[0] == 0xFF
+                && content[1] == 0xD8
+                && content[2] == 0xFF,
+            "image/png" => content.Length >= 8
+                && content[..8].SequenceEqual(
+                    new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }),
+            "image/webp" => content.Length >= 12
+                && content[..4].SequenceEqual("RIFF"u8)
+                && content[8..12].SequenceEqual("WEBP"u8),
+            _ => false
+        };
+    }
+
+    public async Task<UserServiceResult<UserResponseDto>> DeleteProfilePhotoAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _users.GetByIdAsync(userId, cancellationToken);
+
+        if (user is null)
+        {
+            return UserServiceResult<UserResponseDto>
+                .NotFound("User not found.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.ProfilePhotoKey))
+        {
+            await _fileStorageService.DeleteProfilePhotoAsync(
+                user.ProfilePhotoKey,
+                cancellationToken);
+
+            user.ProfilePhotoKey = null;
+
+            await _users.SaveChangesAsync(cancellationToken);
+        }
+
+        return UserServiceResult<UserResponseDto>
+            .Ok(ToResponseDto(user));
+    }
+
     private IQueryable<User> ApplyFilters(
         IQueryable<User> query,
         string? search,
@@ -200,7 +300,7 @@ public class UserService
         return query;
     }
 
-    private static UserResponseDto ToResponseDto(User user)
+    private UserResponseDto ToResponseDto(User user)
     {
         return new UserResponseDto
         {
@@ -211,7 +311,10 @@ public class UserService
             PhoneNumber = user.PhoneNumber,
             Role = user.Role.ToString(),
             CreatedAt = user.CreatedAt,
-            BaseFare = user.BaseFare
+            BaseFare = user.BaseFare,
+            ProfilePhotoUrl = user.ProfilePhotoKey is not null
+                ? _fileStorageService.GetProfilePhotoUrl(user.ProfilePhotoKey)
+                : null
         };
     }
 }
@@ -227,6 +330,9 @@ public sealed record UserServiceResult<T>(
     public static UserServiceResult<T> Created(T value) =>
         new(UserServiceResultStatus.Created, value, null);
 
+    public static UserServiceResult<T> BadRequest(string error) =>
+        new(UserServiceResultStatus.BadRequest, default, error);
+
     public static UserServiceResult<T> NotFound(string error) =>
         new(UserServiceResultStatus.NotFound, default, error);
 }
@@ -235,5 +341,6 @@ public enum UserServiceResultStatus
 {
     Ok,
     Created,
+    BadRequest,
     NotFound
 }

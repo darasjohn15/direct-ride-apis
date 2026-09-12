@@ -301,6 +301,102 @@ public class UsersApiTests : IClassFixture<CustomWebApplicationFactory>
         user.Role.Should().Be(UserRole.Driver);
     }
 
+    [Fact]
+    public async Task PutProfilePhoto_ShouldAllowUserToUpdateOwnPhoto()
+    {
+        var user = await CreateUserAsync("photo-owner@test.com");
+        using var request = CreateProfilePhotoRequest(user.Id, user.Id, "Rider");
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task PutProfilePhoto_ShouldForbidUserFromUpdatingAnotherUsersPhoto()
+    {
+        var user = await CreateUserAsync("photo-target@test.com");
+        using var request = CreateProfilePhotoRequest(user.Id, Guid.NewGuid(), "Rider");
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task PutProfilePhoto_ShouldRejectContentThatIsNotAnImage()
+    {
+        var user = await CreateUserAsync("invalid-photo@test.com");
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent([1, 2, 3]);
+        fileContent.Headers.ContentType = new("image/jpeg");
+        content.Add(fileContent, "file", "profile.jpg");
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"/users/{user.Id}/profile-photo")
+        {
+            Content = content
+        };
+        request.Headers.Add(TestAuthHandler.UserIdHeaderName, user.Id.ToString());
+        request.Headers.Add(TestAuthHandler.UserRoleHeaderName, "Rider");
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task DeleteProfilePhoto_ShouldForbidUserFromDeletingAnotherUsersPhoto()
+    {
+        var user = await CreateUserAsync("photo-delete-target@test.com");
+        using var request = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"/users/{user.Id}/profile-photo");
+        request.Headers.Add(TestAuthHandler.UserIdHeaderName, Guid.NewGuid().ToString());
+        request.Headers.Add(TestAuthHandler.UserRoleHeaderName, "Rider");
+
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    private async Task<UserResponseDto> CreateUserAsync(string email)
+    {
+        var response = await _client.PostAsJsonAsync("/users", new CreateUserDto
+        {
+            FirstName = "Photo",
+            LastName = "User",
+            Email = email,
+            PhoneNumber = "555-555-1212",
+            Role = 0,
+            Password = "CorrectHorse123!"
+        });
+
+        return (await response.Content.ReadFromJsonAsync<UserResponseDto>())!;
+    }
+
+    private static HttpRequestMessage CreateProfilePhotoRequest(
+        Guid targetUserId,
+        Guid authenticatedUserId,
+        string role)
+    {
+        var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent([0xFF, 0xD8, 0xFF, 0xE0]);
+        fileContent.Headers.ContentType = new("image/jpeg");
+        content.Add(fileContent, "file", "profile.jpg");
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"/users/{targetUserId}/profile-photo")
+        {
+            Content = content
+        };
+        request.Headers.Add(TestAuthHandler.UserIdHeaderName, authenticatedUserId.ToString());
+        request.Headers.Add(TestAuthHandler.UserRoleHeaderName, role);
+
+        return request;
+    }
+
     private Task<HttpResponseMessage> GetUsersMeAsync(Guid userId)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, "/users/me");
