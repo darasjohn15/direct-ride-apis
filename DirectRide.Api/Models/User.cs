@@ -22,4 +22,6 @@ public class User
     public List<Notification> Notifications { get; set; } = new();
     public decimal BaseFare { get; set; } = 0.00m;
     public string PasswordHash { get; set; } = string.Empty;
+
+    public string? ProfilePhotoKey { get; set; } = null;
 }

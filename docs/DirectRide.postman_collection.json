@@ -33,6 +33,7 @@
     { "key": "availabilitySlotId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
     { "key": "rideRequestId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
     { "key": "notificationId", "value": "00000000-0000-0000-0000-000000000000", "type": "string" },
+    { "key": "profilePhotoPath", "value": "", "type": "string" },
     { "key": "date", "value": "2026-08-07", "type": "string" },
     { "key": "weekStart", "value": "2026-08-03", "type": "string" }
   ],
@@ -117,6 +118,30 @@
             "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"baseFare\": 30.00\n}" },
             "url": "{{baseUrl}}/users/{{driverId}}"
+          }, "response": []
+        },
+        {
+          "name": "Upload Profile Photo",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "{{profilePhotoPath}}" }
+              ]
+            },
+            "url": "{{baseUrl}}/users/{{userId}}/profile-photo",
+            "description": "Uploads or replaces the user's profile photo. Set profilePhotoPath to a local JPEG, PNG, or WebP file no larger than 5 MB. Non-admin users can only update their own photo. Postman sets the multipart Content-Type boundary automatically."
+          }, "response": []
+        },
+        {
+          "name": "Delete Profile Photo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/users/{{userId}}/profile-photo",
+            "description": "Deletes the user's profile photo. Non-admin users can only delete their own photo."
           }, "response": []
         }
       ]

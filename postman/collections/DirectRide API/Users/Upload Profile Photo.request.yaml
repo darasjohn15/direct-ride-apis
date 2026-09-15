@@ -1,0 +1,12 @@
+$kind: http-request
+description: Uploads or replaces the user's profile photo. Set profilePhotoPath to a local JPEG, PNG, or WebP file no larger than 5 MB. Non-admin users can only update their own photo. Postman sets the multipart Content-Type boundary automatically.
+url: "{{baseUrl}}/users/{{userId}}/profile-photo"
+method: PUT
+body:
+  type: formdata
+  content:
+    - type: file
+      key: file
+      src:
+        - "{{profilePhotoPath}}"
+order: 9000

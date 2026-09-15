@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using DirectRide.Api.Data;
+using DirectRide.Api.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -25,6 +26,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll(typeof(DbContextOptions<AppDbContext>));
             services.RemoveAll(typeof(AppDbContext));
+            services.RemoveAll(typeof(IFileStorageService));
+            services.AddSingleton<IFileStorageService, TestFileStorageService>();
 
             _connection = new SqliteConnection("DataSource=:memory:");
             _connection.Open();
@@ -51,6 +54,30 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         _connection?.Dispose();
         base.Dispose(disposing);
+    }
+}
+
+public sealed class TestFileStorageService : IFileStorageService
+{
+    public Task<string> UploadProfilePhotoAsync(
+        Guid userId,
+        byte[] fileContent,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult($"profile-photos/{userId}/profile");
+    }
+
+    public Task DeleteProfilePhotoAsync(
+        string key,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
+    }
+
+    public string GetProfilePhotoUrl(string key)
+    {
+        return $"https://example.test/{key}";
     }
 }
 

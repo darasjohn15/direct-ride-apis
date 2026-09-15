@@ -2,7 +2,7 @@
 
 This guide explains how to set up the DirectRide API locally for development and testing.
 
-DirectRide is an ASP.NET Core Web API backed by PostgreSQL. The API uses Entity Framework Core migrations, JWT authentication, CORS configuration, and xUnit tests.
+DirectRide is an ASP.NET Core Web API backed by PostgreSQL and Amazon S3. The API uses Entity Framework Core migrations, JWT authentication, CORS configuration, S3 profile-photo storage, and xUnit tests.
 
 ## Prerequisites
 
@@ -13,6 +13,7 @@ Install the following tools before you start:
 - Git
 - Optional: PostgreSQL client tools such as `psql`
 - Optional: EF Core CLI tools for manually managing migrations
+- An AWS account, S3 bucket, and AWS credentials when testing profile-photo operations
 
 Verify the main tools:
 
@@ -106,6 +107,25 @@ JWT settings are also in `DirectRide.Api/appsettings.json`:
 
 For local development, the checked-in values are enough to run the API. For shared, staged, or production-like environments, override secrets with environment variables or another secure configuration source.
 
+### Profile-photo storage
+
+Profile photos are stored in Amazon S3. The database stores an object key in `Users.ProfilePhotoKey`, and user API responses expose a presigned download URL that is valid for one hour.
+
+The default S3 configuration in `DirectRide.Api/appsettings.json` is:
+
+```json
+{
+  "AWS": {
+    "BucketName": "direct-ride-dev-uploads",
+    "Region": "us-east-1"
+  }
+}
+```
+
+Override the bucket name with `AWS__BucketName`. The S3 client uses the AWS SDK's standard region and credential chains, so set the region with `AWS_REGION` (or in the selected AWS profile) and authenticate with an AWS profile or the `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and optional `AWS_SESSION_TOKEN` environment variables. The bucket must already exist. The identity used by the API needs `s3:PutObject`, `s3:DeleteObject`, and `s3:GetObject` access to `profile-photos/*` in that bucket. In AWS, prefer an ECS task role or another workload identity instead of static credentials.
+
+The API can start without contacting S3, but profile-photo upload, deletion, and presigned URL generation require valid bucket, region, and credential configuration. The test suite replaces S3 with an in-memory test implementation and does not require AWS access.
+
 ## Setup Option 1: Run Everything With Docker Compose
 
 From the repository root:
@@ -131,6 +151,8 @@ PostgreSQL host port: localhost:5433
 ```
 
 The API container connects to PostgreSQL using the Docker service name `db` and port `5432` inside the Compose network.
+
+To exercise profile-photo endpoints through Docker Compose, pass AWS configuration and credentials into the `api` service (or attach an AWS workload role in the deployed environment). The checked-in Compose file does not provide AWS credentials.
 
 Stop the containers:
 
@@ -337,6 +359,14 @@ export DB_USERNAME=postgres
 export DB_PASSWORD=password
 ```
 
+S3 override using an existing local AWS profile:
+
+```bash
+export AWS__BucketName=your-directride-uploads-bucket
+export AWS_REGION=us-east-1
+export AWS_PROFILE=your-profile
+```
+
 Run the API with those variables:
 
 ```bash
@@ -375,6 +405,10 @@ Password: password
 ```
 
 If the API is running inside Docker Compose, the host should be `db` and the port should be `5432`.
+
+### Profile-photo requests fail with an AWS or S3 error
+
+Confirm that `AWS__BucketName` identifies an existing bucket, `AWS_REGION` (or the active profile) selects its region, the AWS SDK can resolve credentials, and the active identity has object access under `profile-photos/*`. When running the API container locally, remember that host AWS profiles and environment variables are not automatically available inside the container.
 
 ### OpenAPI URL returns 404
 

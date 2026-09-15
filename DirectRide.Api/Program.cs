@@ -9,6 +9,7 @@ using DirectRide.Api.Services;
 using DirectRide.Api.Controllers;
 using DirectRide.Api.Models;
 using DirectRide.Api.Repositories;
+using Amazon.S3;
 
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
@@ -79,6 +80,8 @@ builder.Services.AddScoped<RideRequestService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<PasswordHasher<User>>();
+builder.Services.AddScoped<IFileStorageService, S3FileStorageService>();
+builder.Services.AddSingleton<IAmazonS3, AmazonS3Client>();
 
 var app = builder.Build();
 

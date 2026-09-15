@@ -34,6 +34,8 @@ Request body:
 | `GET` | `/users/{id}` | Required | Get a user by ID. |
 | `PUT` | `/users/{id}` | Required | Replace a user's profile fields. |
 | `PATCH` | `/users/{id}` | Required | Update one or more user profile fields. |
+| `PUT` | `/users/{id}/profile-photo` | Required | Upload or replace a user's profile photo. The user themself or an admin may perform this operation. |
+| `DELETE` | `/users/{id}/profile-photo` | Required | Delete a user's profile photo. The user themself or an admin may perform this operation. |
 
 Create user body:
 
@@ -63,6 +65,29 @@ Update user body:
 
 Patch user body supports any subset of `firstName`, `lastName`, `email`, `phoneNumber`, `role`, and `baseFare`.
 
+### Profile photos
+
+Upload a profile photo as `multipart/form-data`. The form field must be named `file`:
+
+```bash
+curl -X PUT "http://localhost:5049/users/{userId}/profile-photo" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/path/to/profile.jpg"
+```
+
+Supported media types are `image/jpeg`, `image/png`, and `image/webp`. The file content must match its declared media type, and the image payload cannot exceed 5 MB. The complete multipart request is limited to 6 MB.
+
+A successful upload returns `200 OK` with the updated user response. Uploading again replaces the object at the user's profile-photo key. Delete the photo with:
+
+```bash
+curl -X DELETE "http://localhost:5049/users/{userId}/profile-photo" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Deletion is idempotent: deleting a user photo when none is stored still returns `200 OK`. Both operations return `401 Unauthorized` for an invalid or missing identity, `403 Forbidden` when a non-admin targets another user, and `404 Not Found` when the target user does not exist. Invalid or oversized upload content returns `400 Bad Request`; a multipart request over the endpoint request-size limit may return `413 Payload Too Large`.
+
+All user response DTOs include `profilePhotoUrl`. It is `null` when the user has no photo; otherwise it is a presigned S3 URL that expires one hour after it is generated. Clients should obtain a fresh user response rather than persist the URL.
+
 `GET /users` query filters:
 
 | Query parameter | Type | Notes |
@@ -85,7 +110,8 @@ Patch user body supports any subset of `firstName`, `lastName`, `email`, `phoneN
       "email": "sample.driver@directride.com",
       "phoneNumber": "555-555-5555",
       "role": "Driver",
-      "baseFare": 25.00
+      "baseFare": 25.00,
+      "profilePhotoUrl": "https://example-bucket.s3.amazonaws.com/profile-photos/00000000-0000-0000-0000-000000000000/profile?..."
     }
   ],
   "page": 1,
